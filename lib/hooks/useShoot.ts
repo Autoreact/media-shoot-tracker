@@ -1,138 +1,399 @@
 'use client';
 
-import { Shoot, ShootRoom, PropertyTier } from '@/types';
+import { useCallback } from 'react';
+import {
+  ShootState,
+  ShootRoom,
+  PropertyTier,
+  ShootMode,
+  PhotographerId,
+  AryeoAppointment,
+} from '@/types';
 import { useLocalStorage } from './useLocalStorage';
-import { generateRoomList } from '@/lib/utils/generate-rooms';
 import { getTierInfo } from '@/lib/data/tier-info';
-import { nanoid } from 'nanoid';
+
+const INITIAL_STATE: ShootState | null = null;
 
 export function useShoot() {
-  const [shoot, setShoot] = useLocalStorage<Shoot | null>(
-    'active-shoot',
-    null
+  const [shoot, setShoot] = useLocalStorage<ShootState | null>(
+    'v2-active-shoot',
+    INITIAL_STATE
   );
 
-  const startShoot = (tier: PropertyTier, photographer: string) => {
-    const tierInfo = getTierInfo(tier);
-    const rooms = generateRoomList(tier);
+  const startShoot = useCallback(
+    (
+      appointment: AryeoAppointment,
+      tier: PropertyTier,
+      mode: ShootMode,
+      photographerId: PhotographerId,
+      rooms: ShootRoom[]
+    ): ShootState => {
+      const tierInfo = getTierInfo(tier);
+      const dropboxFolderPath = `AutoHDR/${appointment.orderNumber} - ${appointment.agentName} - ${appointment.address}/01-RAW-Photos/`;
 
-    const newShoot: Shoot = {
-      id: nanoid(),
-      tier,
-      tierDisplayName: tierInfo?.displayName ?? tier,
-      photographer,
-      startedAt: new Date(),
-      status: 'active',
-      rooms,
-      targetShots: tierInfo?.targetShots ?? 40,
-    };
+      const newShoot: ShootState = {
+        aryeoOrderNumber: appointment.orderNumber,
+        address: appointment.address,
+        city: appointment.city,
+        tier,
+        mode,
+        photographerId,
+        agentName: appointment.agentName,
+        agentPhone: appointment.agentPhone,
+        agentEmail: appointment.agentEmail,
+        brokerage: appointment.brokerage,
+        beds: appointment.beds,
+        baths: appointment.baths,
+        sqft: appointment.sqft,
+        furnished: appointment.furnished,
+        services: appointment.services,
+        rooms,
+        shots: 0,
+        target: tierInfo.targetShots,
+        quickCountTotal: 0,
+        timerRunning: false,
+        timerSeconds: 0,
+        startTime: null,
+        endTime: null,
+        notes: {},
+        globalNotes: '',
+        dropboxFolderPath,
+        status: 'active',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+      };
 
-    setShoot(newShoot);
-    return newShoot;
-  };
+      setShoot(newShoot);
+      return newShoot;
+    },
+    [setShoot]
+  );
 
-  const updateRoom = (roomId: string, updates: Partial<ShootRoom>) => {
-    if (!shoot) return;
+  // Manual entry — no Aryeo appointment
+  const startManualShoot = useCallback(
+    (
+      address: string,
+      tier: PropertyTier,
+      mode: ShootMode,
+      photographerId: PhotographerId,
+      rooms: ShootRoom[]
+    ): ShootState => {
+      const tierInfo = getTierInfo(tier);
+      const orderNumber = `M-${Date.now()}`;
+      const dropboxFolderPath = `AutoHDR/${orderNumber} - Manual - ${address}/01-RAW-Photos/`;
 
-    setShoot({
-      ...shoot,
-      rooms: shoot.rooms.map((room) =>
-        room.id === roomId ? { ...room, ...updates } : room
-      ),
+      const newShoot: ShootState = {
+        aryeoOrderNumber: orderNumber,
+        address,
+        city: '',
+        tier,
+        mode,
+        photographerId,
+        agentName: '',
+        agentPhone: '',
+        agentEmail: '',
+        brokerage: '',
+        beds: 0,
+        baths: 0,
+        sqft: 0,
+        furnished: false,
+        services: [],
+        rooms,
+        shots: 0,
+        target: tierInfo.targetShots,
+        quickCountTotal: 0,
+        timerRunning: false,
+        timerSeconds: 0,
+        startTime: null,
+        endTime: null,
+        notes: {},
+        globalNotes: '',
+        dropboxFolderPath,
+        status: 'active',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+      };
+
+      setShoot(newShoot);
+      return newShoot;
+    },
+    [setShoot]
+  );
+
+  // Room shot updates
+  const updateActualShots = useCallback(
+    (roomId: string, actual: number): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId ? { ...r, actualShots: Math.max(0, actual) } : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
+
+  const incrementShot = useCallback(
+    (roomId: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId ? { ...r, actualShots: r.actualShots + 1 } : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
+
+  const decrementShot = useCallback(
+    (roomId: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId
+              ? { ...r, actualShots: Math.max(0, r.actualShots - 1) }
+              : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
+
+  const toggleRoomComplete = useCallback(
+    (roomId: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId ? { ...r, completed: !r.completed } : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
+
+  // Quick Count mode
+  const incrementQuickCount = useCallback((): void => {
+    setShoot((prev) => {
+      if (!prev) return prev;
+      return { ...prev, quickCountTotal: prev.quickCountTotal + 1 };
     });
-  };
+  }, [setShoot]);
 
-  const updateActualShots = (roomId: string, actual: number) => {
-    updateRoom(roomId, { actualShots: actual });
-  };
-
-  const toggleComplete = (roomId: string) => {
-    if (!shoot) return;
-
-    const room = shoot.rooms.find((r) => r.id === roomId);
-    if (!room) return;
-
-    updateRoom(roomId, { completed: !room.completed });
-  };
-
-  const toggleSkip = (roomId: string) => {
-    if (!shoot) return;
-
-    const room = shoot.rooms.find((r) => r.id === roomId);
-    if (!room) return;
-
-    updateRoom(roomId, {
-      skipped: !room.skipped,
-      completed: false,
-      actualShots: null,
+  const decrementQuickCount = useCallback((): void => {
+    setShoot((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        quickCountTotal: Math.max(0, prev.quickCountTotal - 1),
+      };
     });
-  };
+  }, [setShoot]);
 
-  const addCustomRoom = (room: Partial<ShootRoom>) => {
-    if (!shoot) return;
+  // Room chip toggle (Quick Count)
+  const toggleRoomChipDone = useCallback(
+    (roomId: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId ? { ...r, completed: !r.completed } : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
 
-    const newRoom: ShootRoom = {
-      id: nanoid(),
-      templateId: '',
-      name: room.name ?? 'Custom Room',
-      category: room.category ?? 'misc',
-      expectedShots: room.expectedShots ?? 1,
-      actualShots: null,
-      orientation: room.orientation ?? 'H',
-      completed: false,
-      skipped: false,
-      sortOrder: shoot.rooms.length,
-      isCustom: true,
-      ...room,
-    };
+  // Mode switching
+  const setMode = useCallback(
+    (mode: ShootMode): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        // When switching from detail to quick: quickCountTotal = sum of room actuals
+        if (mode === 'quick' && prev.mode === 'detail') {
+          const total = prev.rooms.reduce((sum, r) => sum + r.actualShots, 0);
+          return { ...prev, mode, quickCountTotal: total };
+        }
+        return { ...prev, mode };
+      });
+    },
+    [setShoot]
+  );
 
-    setShoot({
-      ...shoot,
-      rooms: [...shoot.rooms, newRoom],
+  // Timer
+  const startTimer = useCallback((): void => {
+    setShoot((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        timerRunning: true,
+        startTime: prev.startTime || new Date().toISOString(),
+      };
     });
-  };
+  }, [setShoot]);
 
-  const updateAddress = (address: string) => {
-    if (!shoot) return;
-    setShoot({ ...shoot, address });
-  };
-
-  const updateNotes = (roomId: string, notes: string) => {
-    updateRoom(roomId, { notes });
-  };
-
-  const updateGlobalNotes = (notes: string) => {
-    if (!shoot) return;
-    setShoot({ ...shoot, globalNotes: notes });
-  };
-
-  const completeShoot = () => {
-    if (!shoot) return;
-
-    setShoot({
-      ...shoot,
-      status: 'completed',
-      completedAt: new Date(),
+  const stopTimer = useCallback((): void => {
+    setShoot((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        timerRunning: false,
+        endTime: new Date().toISOString(),
+      };
     });
-  };
+  }, [setShoot]);
 
-  const clearShoot = () => {
+  const updateTimerSeconds = useCallback(
+    (seconds: number): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return { ...prev, timerSeconds: seconds };
+      });
+    },
+    [setShoot]
+  );
+
+  const adjustStartTime = useCallback(
+    (minutesDelta: number): void => {
+      setShoot((prev) => {
+        if (!prev || !prev.startTime) return prev;
+        const d = new Date(prev.startTime);
+        d.setMinutes(d.getMinutes() + minutesDelta);
+        return { ...prev, startTime: d.toISOString() };
+      });
+    },
+    [setShoot]
+  );
+
+  const adjustEndTime = useCallback(
+    (minutesDelta: number): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        const d = new Date(prev.endTime || new Date().toISOString());
+        d.setMinutes(d.getMinutes() + minutesDelta);
+        return { ...prev, endTime: d.toISOString() };
+      });
+    },
+    [setShoot]
+  );
+
+  // Notes
+  const updateRoomNotes = useCallback(
+    (roomId: string, notes: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rooms: prev.rooms.map((r) =>
+            r.id === roomId ? { ...r, notes } : r
+          ),
+        };
+      });
+    },
+    [setShoot]
+  );
+
+  const updateGlobalNotes = useCallback(
+    (notes: string): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return { ...prev, globalNotes: notes };
+      });
+    },
+    [setShoot]
+  );
+
+  // Complete
+  const completeShoot = useCallback((): void => {
+    setShoot((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        timerRunning: false,
+        endTime: prev.endTime || new Date().toISOString(),
+      };
+    });
+  }, [setShoot]);
+
+  const clearShoot = useCallback((): void => {
     setShoot(null);
-  };
+  }, [setShoot]);
+
+  // Computed totals
+  const getTotals = useCallback(() => {
+    if (!shoot) {
+      return {
+        expectedTotal: 0,
+        actualTotal: 0,
+        variance: 0,
+        completedCount: 0,
+        skippedCount: 0,
+        totalCount: 0,
+        progressPercent: 0,
+      };
+    }
+    const enabledRooms = shoot.rooms.filter((r) => r.enabled && !r.skipped);
+    const expectedTotal = enabledRooms.reduce(
+      (sum, r) => sum + r.expectedShots,
+      0
+    );
+    const actualTotal =
+      shoot.mode === 'quick'
+        ? shoot.quickCountTotal
+        : enabledRooms.reduce((sum, r) => sum + r.actualShots, 0);
+    const completedCount = enabledRooms.filter((r) => r.completed).length;
+    const skippedCount = shoot.rooms.filter((r) => r.skipped).length;
+    const totalCount = enabledRooms.length;
+    const progressPercent =
+      totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    return {
+      expectedTotal,
+      actualTotal,
+      variance: actualTotal - shoot.target,
+      completedCount,
+      skippedCount,
+      totalCount,
+      progressPercent,
+    };
+  }, [shoot]);
 
   return {
     shoot,
     startShoot,
-    updateRoom,
+    startManualShoot,
     updateActualShots,
-    toggleComplete,
-    toggleSkip,
-    addCustomRoom,
-    updateAddress,
-    updateNotes,
+    incrementShot,
+    decrementShot,
+    toggleRoomComplete,
+    incrementQuickCount,
+    decrementQuickCount,
+    toggleRoomChipDone,
+    setMode,
+    startTimer,
+    stopTimer,
+    updateTimerSeconds,
+    adjustStartTime,
+    adjustEndTime,
+    updateRoomNotes,
     updateGlobalNotes,
     completeShoot,
     clearShoot,
+    getTotals,
   };
 }
-

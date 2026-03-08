@@ -1,0 +1,441 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { AryeoAppointment, PhotographerId, PHOTOGRAPHERS } from '@/types';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PhoneIcon,
+  ChatBubbleLeftIcon,
+  Cog6ToothIcon,
+} from '@heroicons/react/24/outline';
+
+interface Props {
+  onSelectAppointment: (appointment: AryeoAppointment) => void;
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatDateShort(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function getShooterColor(id: PhotographerId): string {
+  const p = PHOTOGRAPHERS.find((p) => p.id === id);
+  return p?.color || '#635BFF';
+}
+
+function getShooterInfo(id: PhotographerId) {
+  return PHOTOGRAPHERS.find((p) => p.id === id);
+}
+
+export default function AppointmentsScreen({ onSelectAppointment }: Props): React.ReactElement {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [appointments, setAppointments] = useState<AryeoAppointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [shooterFilter, setShooterFilter] = useState<PhotographerId | 'all'>('all');
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+
+  const fetchAppointments = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const res = await fetch(`/api/appointments?date=${dateStr}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAppointments(data.appointments || []);
+        setLastSynced(new Date());
+      }
+    } catch {
+      // Use empty state on error — will show "no shoots" message
+    } finally {
+      setLoading(false);
+    }
+  }, [currentDate]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  // 5-minute refresh
+  useEffect(() => {
+    const interval = setInterval(fetchAppointments, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchAppointments]);
+
+  const navigateDate = (delta: number): void => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + delta);
+    setCurrentDate(d);
+  };
+
+  const isToday =
+    currentDate.toDateString() === new Date().toDateString();
+
+  const jumpToToday = (): void => setCurrentDate(new Date());
+
+  // Date pills: show 5 days centered on current
+  const datePills = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + (i - 2));
+    return d;
+  });
+
+  // Filter appointments
+  const filtered =
+    shooterFilter === 'all'
+      ? appointments
+      : appointments.filter((a) => a.shooterIds.includes(shooterFilter));
+
+  const activeCount = filtered.filter((a) => a.status !== 'CANCELLED').length;
+
+  return (
+    <div className="flex flex-col min-h-screen animate-fade-in">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white pb-2 px-4 pt-4">
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">NR</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-neutral-950">Shoots</h1>
+            </div>
+          </div>
+          <button className="w-8 h-8 flex items-center justify-center text-neutral-400">
+            <Cog6ToothIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Date Navigation */}
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => navigateDate(-1)}
+            className="w-8 h-8 flex items-center justify-center text-neutral-500"
+          >
+            <ChevronLeftIcon className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <h2 className="text-sm font-bold text-neutral-950">
+              {formatDate(currentDate)}
+            </h2>
+            {!isToday && (
+              <button
+                onClick={jumpToToday}
+                className="text-primary-600 font-semibold text-xs"
+              >
+                Jump to Today
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => navigateDate(1)}
+            className="w-8 h-8 flex items-center justify-center text-neutral-500"
+          >
+            <ChevronRightIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Date pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+          {datePills.map((d, i) => {
+            const isSelected = d.toDateString() === currentDate.toDateString();
+            const isTodayPill = d.toDateString() === new Date().toDateString();
+            return (
+              <button
+                key={i}
+                onClick={() => setCurrentDate(new Date(d))}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-neutral-100 border border-primary-600 text-primary-700 font-semibold'
+                    : isTodayPill
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'bg-neutral-100 text-neutral-700'
+                }`}
+              >
+                {formatDateShort(d)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Shooter Filter */}
+        <div className="flex gap-2 pb-2">
+          <button
+            onClick={() => setShooterFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+              shooterFilter === 'all'
+                ? 'bg-primary-500 text-white'
+                : 'bg-neutral-100 text-neutral-700'
+            }`}
+          >
+            All
+          </button>
+          {PHOTOGRAPHERS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setShooterFilter(p.id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+                shooterFilter === p.id
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700'
+              }`}
+            >
+              <span
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                style={{ backgroundColor: p.color }}
+              >
+                {p.initials[0]}
+              </span>
+              {p.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Sync indicator */}
+        <div className="flex items-center gap-1.5 text-xs text-neutral-500 pb-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
+          Synced from Aryeo · {activeCount} shoot{activeCount !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      {/* Appointment List */}
+      <div className="flex-1 px-4 pb-24 space-y-2">
+        {loading ? (
+          <div className="text-center py-12 text-neutral-400 text-sm">
+            Loading appointments...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-neutral-400 text-sm">
+            No shoots scheduled for this day
+          </div>
+        ) : (
+          filtered.map((apt) => (
+            <AppointmentCard
+              key={apt.id}
+              appointment={apt}
+              onSelect={onSelectAppointment}
+            />
+          ))
+        )}
+
+        {/* Manual Entry */}
+        <button
+          onClick={() => {
+            const manual: AryeoAppointment = {
+              id: `manual-${Date.now()}`,
+              orderNumber: `M-${Date.now()}`,
+              status: 'CONFIRMED',
+              address: '',
+              city: 'Tallahassee',
+              state: 'FL',
+              zip: '',
+              startAt: new Date().toISOString(),
+              agentName: '',
+              agentPhone: '',
+              agentEmail: '',
+              brokerage: '',
+              services: ['Photos'],
+              beds: 3,
+              baths: 2,
+              sqft: 0,
+              furnished: false,
+              shooterIds: ['nick'],
+              notes: '',
+            };
+            onSelectAppointment(manual);
+          }}
+          className="w-full p-4 border-2 border-dashed border-neutral-300 rounded-xl text-neutral-500 text-sm font-medium hover:border-primary-400 hover:text-primary-600 transition-colors"
+        >
+          + Manual Entry
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// Appointment Card Component
+// ═══════════════════════════════════════════════════════════
+
+function AppointmentCard({
+  appointment,
+  onSelect,
+}: {
+  appointment: AryeoAppointment;
+  onSelect: (apt: AryeoAppointment) => void;
+}): React.ReactElement {
+  const isCancelled = appointment.status === 'CANCELLED';
+
+  if (isCancelled) {
+    return (
+      <div
+        className="p-3 bg-white rounded-xl border border-neutral-200 opacity-60"
+      >
+        <div className="flex items-start justify-between mb-1.5">
+          <div>
+            <p className="text-xs text-neutral-400">{formatTime(appointment.startAt)}</p>
+            <h3 className="font-bold text-neutral-950 text-[15px] line-through">
+              {appointment.address || 'No address'}
+            </h3>
+          </div>
+          <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-error-100 text-error-500 rounded">
+            Cancelled
+          </span>
+        </div>
+        {appointment.shooterIds.length > 0 && (
+          <div className="flex gap-1 mt-1.5 opacity-60">
+            {appointment.shooterIds.map((sid) => {
+              const info = getShooterInfo(sid);
+              if (!info) return null;
+              return (
+                <span
+                  key={sid}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-white"
+                  style={{ backgroundColor: info.color }}
+                >
+                  {info.initials}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onSelect(appointment)}
+      className="w-full text-left p-3 bg-white rounded-xl border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition-all active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between mb-1">
+        <span className="px-2 py-0.5 bg-primary-50 text-primary-700 text-xs font-medium rounded-lg">
+          {formatTime(appointment.startAt)}
+        </span>
+        <div className="flex items-center gap-1">
+          {appointment.shooterIds.map((sid) => {
+            const info = getShooterInfo(sid);
+            if (!info) return null;
+            return (
+              <span
+                key={sid}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ backgroundColor: info.color }}
+              >
+                <span
+                  className="w-3 h-3 rounded-full bg-white/30 flex items-center justify-center text-[7px]"
+                >
+                  {info.initials[0]}
+                </span>
+                {info.name}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Services */}
+      {appointment.services.length > 0 && (
+        <div className="flex gap-1 flex-wrap mb-1.5">
+          {appointment.services.map((s) => (
+            <span
+              key={s}
+              className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] font-medium rounded"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Address */}
+      <h3 className="font-bold text-neutral-950 text-[17px] mb-1">
+        {appointment.address || 'Address TBD'}
+      </h3>
+
+      {/* Property stats */}
+      <div className="flex items-center gap-2 text-xs text-neutral-500 mb-2">
+        <span>{appointment.beds} bed · {appointment.baths} bath</span>
+        {appointment.sqft > 0 && (
+          <>
+            <span className="text-neutral-300">|</span>
+            <span>{appointment.sqft.toLocaleString()} sqft</span>
+          </>
+        )}
+        {!appointment.furnished && (
+          <span className="px-1.5 py-0.5 bg-warning-50 text-warning-600 text-[10px] font-medium rounded border border-warning-100">
+            Vacant
+          </span>
+        )}
+      </div>
+
+      {/* Agent contact row */}
+      {appointment.agentName && (
+        <div className="flex items-center gap-2 mb-2">
+          <div
+            className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-[9px] font-bold text-neutral-600"
+          >
+            {getInitials(appointment.agentName)}
+          </div>
+          <span className="text-xs font-medium text-neutral-700 flex-1">
+            {appointment.agentName}
+          </span>
+          {appointment.agentPhone && (
+            <a
+              href={`tel:${appointment.agentPhone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-8 h-8 rounded-lg bg-success-50 flex items-center justify-center"
+            >
+              <PhoneIcon className="w-4 h-4 text-success-600" />
+            </a>
+          )}
+          {appointment.agentPhone && (
+            <a
+              href={`sms:${appointment.agentPhone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center"
+            >
+              <ChatBubbleLeftIcon className="w-4 h-4 text-primary-600" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-[10px] text-neutral-400 uppercase tracking-wider">
+        <span>Order #{appointment.orderNumber}</span>
+        <div className="flex items-center gap-1">
+          <span className="font-medium text-primary-500">
+            {appointment.beds}/{appointment.baths} tier
+          </span>
+          <ChevronRightIcon className="w-3 h-3 text-neutral-400" />
+        </div>
+      </div>
+    </button>
+  );
+}

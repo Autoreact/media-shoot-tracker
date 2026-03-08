@@ -1,95 +1,185 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect } from 'react';
+import {
+  AppScreen,
+  AryeoAppointment,
+  PropertyTier,
+  ShootMode,
+  PhotographerId,
+  ShootRoom,
+} from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
-import { TemplateSelector } from '@/components/TemplateSelector';
-import { PropertyTier } from '@/types';
-import { useEffect, useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { generateRoomList } from '@/lib/utils/generate-rooms';
+import AppointmentsScreen from '@/components/screens/AppointmentsScreen';
+import TierConfirmationScreen from '@/components/screens/TierConfirmationScreen';
+import RoomSetupScreen from '@/components/screens/RoomSetupScreen';
+import RoomTrackerScreen from '@/components/screens/RoomTrackerScreen';
+import QuickCountScreen from '@/components/screens/QuickCountScreen';
+import TimerScreen from '@/components/screens/TimerScreen';
+import CompletionScreen from '@/components/screens/CompletionScreen';
 
-export default function Home() {
-  const router = useRouter();
-  const { shoot, startShoot } = useShoot();
-  const [photographer, setPhotographer] = useState('');
-  const [selectedTier, setSelectedTier] = useState<PropertyTier | null>(null);
+export default function HomePage(): React.ReactElement {
+  const [screen, setScreen] = useState<AppScreen>('appointments');
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<AryeoAppointment | null>(null);
+  const [selectedTier, setSelectedTier] = useState<PropertyTier>('three_two');
+  const [selectedMode, setSelectedMode] = useState<ShootMode>('detail');
+  const [setupRooms, setSetupRooms] = useState<ShootRoom[]>([]);
 
+  const shootHook = useShoot();
+  const activeShoot = shootHook.shoot;
+
+  // Resume active shoot on page load
   useEffect(() => {
-    // If there's an active shoot, redirect to it
-    if (shoot && shoot.status === 'active') {
-      router.push('/shoot');
+    if (activeShoot && activeShoot.status === 'active' && screen === 'appointments') {
+      setScreen(activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count');
     }
-  }, [shoot, router]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSelectTier = (tier: PropertyTier) => {
-    setSelectedTier(tier);
-  };
+  const handleSelectAppointment = useCallback(
+    (appointment: AryeoAppointment): void => {
+      setSelectedAppointment(appointment);
+      setScreen('tier_confirmation');
+    },
+    []
+  );
 
-  const handleStart = () => {
-    if (!selectedTier || !photographer.trim()) return;
+  const handleTierConfirmed = useCallback(
+    (tier: PropertyTier, mode: ShootMode): void => {
+      setSelectedTier(tier);
+      setSelectedMode(mode);
+      const rooms = generateRoomList(tier);
+      setSetupRooms(rooms);
+      setScreen('room_setup');
+    },
+    []
+  );
 
-    startShoot(selectedTier, photographer);
-    router.push('/shoot');
-  };
+  const handleRoomSetupComplete = useCallback(
+    (rooms: ShootRoom[]): void => {
+      if (!selectedAppointment) return;
 
-  if (selectedTier) {
-    const tierPrefix = selectedTier.split('_')[0]?.toUpperCase() || 'S';
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg">
-              <span className="text-3xl font-bold text-white">
-                {tierPrefix}
-              </span>
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900">Ready to Start</h1>
-            <p className="mt-2 text-lg text-slate-600">
-              Who's shooting today?
-            </p>
-          </div>
+      const photographerId: PhotographerId =
+        selectedAppointment.shooterIds[0] || 'nick';
 
-          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="space-y-2">
-              <label htmlFor="photographer" className="text-sm font-medium text-slate-700">
-                Photographer Name
-              </label>
-              <Input
-                id="photographer"
-                placeholder="Enter your name"
-                value={photographer}
-                onChange={(e) => setPhotographer(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && photographer.trim()) {
-                    handleStart();
-                  }
-                }}
-                autoFocus
-                className="h-12 text-lg"
-              />
-            </div>
+      shootHook.startShoot(
+        selectedAppointment,
+        selectedTier,
+        selectedMode,
+        photographerId,
+        rooms
+      );
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedTier(null)}
-                className="flex-1 h-12"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={handleStart}
-                disabled={!photographer.trim()}
-                className="flex-1 h-12 text-base font-semibold"
-              >
-                Start Shoot →
-              </Button>
-            </div>
-          </div>
-        </div>
+      setScreen(selectedMode === 'detail' ? 'room_tracker' : 'quick_count');
+    },
+    [selectedAppointment, selectedTier, selectedMode, shootHook]
+  );
+
+  const handleCompleteShoot = useCallback((): void => {
+    shootHook.completeShoot();
+    setScreen('completion');
+  }, [shootHook]);
+
+  const handleNewShoot = useCallback((): void => {
+    shootHook.clearShoot();
+    setSelectedAppointment(null);
+    setScreen('appointments');
+  }, [shootHook]);
+
+  const goBack = useCallback((): void => {
+    switch (screen) {
+      case 'tier_confirmation':
+        setScreen('appointments');
+        break;
+      case 'room_setup':
+        setScreen('tier_confirmation');
+        break;
+      case 'room_tracker':
+      case 'quick_count':
+        setScreen('room_setup');
+        break;
+      case 'timer':
+        setScreen(activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count');
+        break;
+      case 'completion':
+        setScreen(activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count');
+        break;
+      default:
+        setScreen('appointments');
+    }
+  }, [screen, activeShoot]);
+
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      <div className="max-w-md mx-auto">
+        {screen === 'appointments' && (
+          <AppointmentsScreen
+            onSelectAppointment={handleSelectAppointment}
+          />
+        )}
+
+        {screen === 'tier_confirmation' && selectedAppointment && (
+          <TierConfirmationScreen
+            appointment={selectedAppointment}
+            onConfirm={handleTierConfirmed}
+            onBack={goBack}
+          />
+        )}
+
+        {screen === 'room_setup' && (
+          <RoomSetupScreen
+            rooms={setupRooms}
+            tier={selectedTier}
+            onComplete={handleRoomSetupComplete}
+            onBack={goBack}
+            onUpdateRooms={setSetupRooms}
+          />
+        )}
+
+        {screen === 'room_tracker' && activeShoot && (
+          <RoomTrackerScreen
+            shoot={activeShoot}
+            shootHook={shootHook}
+            onComplete={handleCompleteShoot}
+            onTimer={() => setScreen('timer')}
+            onSwitchMode={() => {
+              shootHook.setMode('quick');
+              setScreen('quick_count');
+            }}
+          />
+        )}
+
+        {screen === 'quick_count' && activeShoot && (
+          <QuickCountScreen
+            shoot={activeShoot}
+            shootHook={shootHook}
+            onComplete={handleCompleteShoot}
+            onTimer={() => setScreen('timer')}
+            onSwitchMode={() => {
+              shootHook.setMode('detail');
+              setScreen('room_tracker');
+            }}
+          />
+        )}
+
+        {screen === 'timer' && activeShoot && (
+          <TimerScreen
+            shoot={activeShoot}
+            shootHook={shootHook}
+            onBack={goBack}
+          />
+        )}
+
+        {screen === 'completion' && activeShoot && (
+          <CompletionScreen
+            shoot={activeShoot}
+            shootHook={shootHook}
+            onNewShoot={handleNewShoot}
+            onBack={goBack}
+          />
+        )}
       </div>
-    );
-  }
-
-  return <TemplateSelector onSelectTier={handleSelectTier} />;
+    </div>
+  );
 }
