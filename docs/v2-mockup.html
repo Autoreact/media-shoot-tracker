@@ -316,6 +316,100 @@ toggl:{pink:'#E57CD8',darkBg:'#1A1A2E',cardBg:'#2D2D44',ring:'#E57CD8'}
 </div>
 <script>
 function showScreen(n){document.querySelectorAll('.scr').forEach((s,i)=>{s.classList.toggle('on',i===n)})}
+// Simulated order data
+const order = {
+  orderNum: '323',
+  agentName: 'Sarah Chen',
+  clientName: 'Trinity Lutheran',
+  address: '456 Oak Street, Springfield',
+  tier: 'Platinum',
+  shooters: 2,
+  eventDate: '2025-03-08',
+  totalShots: 52,
+  startTime: '2:00 PM',
+  elapsedTime: '4h 12m',
+  rooms: [
+    {id:'foyer',name:'Foyer',target:38,current:32,priority:'high'},
+    {id:'hall',name:'Main Hall',target:24,current:8,priority:'medium'},
+    {id:'ceremony',name:'Ceremony Room',target:16,current:0,priority:'urgent'},
+    {id:'portraits',name:'Portraits',target:12,current:12,priority:'complete'}
+  ],
+  photographers: ['Alex','Jordan'],
+  agentPhone: '+1 (555) 123-4567',
+  agentEmail: 'sarah@trinity.edu',
+  tierDetails: {
+    name: 'Platinum',
+    shooters: 2,
+    delivery: 'Web + Print'
+  },
+  setupChecklist: {
+    'Main Stage': {items:['Main backdrop','Ring light','Reflector stand'],checked:[true,true,false]},
+    'Ceremony Area': {items:['Aisle markers','Sound check done'],checked:[true,false]}
+  }
+};
+// Room tracking and shot counter logic
+let sessionShots = 0;
+let timerSeconds = 0;
+function addShots(n){
+  sessionShots += n;
+  order.rooms[0].current += n;
+  updateFooter();
+  console.log(`Added ${n} shots. Total session: ${sessionShots}`);
+}
+function updateFooter(){
+  const total = order.rooms.reduce((sum,r)=>sum+r.current,0);
+  console.log(`Total shots: ${total}/${order.totalShots}`);
+}
+function updateRoomProgress(roomId,count){
+  const room = order.rooms.find(r=>r.id===roomId);
+  if(room){
+    room.current = count;
+    updateFooter();
+  }
+}
+// Timer functionality
+function formatTime(seconds){
+  const hours = Math.floor(seconds/3600);
+  const minutes = Math.floor((seconds%3600)/60);
+  const secs = seconds%60;
+  return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+function startTimer(){
+  setInterval(()=>{timerSeconds++;},1000);
+}
+function getCurrentTime(){
+  const now = new Date();
+  return now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+// Room setup completion tracking
+function checkSetupItem(section,index){
+  const checklist = order.setupChecklist[section].checked;
+  checklist[index] = !checklist[index];
+  console.log(`${section} item ${index+1}: ${checklist[index]?'✓':'✗'}`);
+}
+function isSetupComplete(){
+  return Object.values(order.setupChecklist).every(section=>
+    section.checked.every(checked=>checked===true)
+  );
+}
+// Quick shot logging
+function logQuickShot(amount){
+  addShots(amount);
+  console.log(`Quick shot logged: +${amount}`);
+}
+// Dropbox integration
+function createDropboxFolder(orderNum,agentName,address){
+  const folderName = orderNum+' - '+agentName+' - '+address;
+  console.log('[Dropbox] Would create: AutoHDR/'+folderName+'/01-RAW-Photos');
+  // In production: Dropbox API via Trigger.dev task
+  // 1. Check if folder starting with orderNum exists
+  // 2. If not, create parent + 01-RAW-Photos subfolder
+  // 3. Store folder_id in Supabase for future reference
+  return folderName;
+}
+
+// Init
+renderRooms();updateFooter();
 </script>
 </body>
 </html>
