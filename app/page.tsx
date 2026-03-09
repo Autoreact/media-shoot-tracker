@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   AppScreen,
   AryeoAppointment,
@@ -10,6 +10,7 @@ import {
   ShootRoom,
 } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
+import { useShootSync } from '@/lib/hooks/useShootSync';
 import { generateRoomList } from '@/lib/utils/generate-rooms';
 import AppointmentsScreen from '@/components/screens/AppointmentsScreen';
 import TierConfirmationScreen from '@/components/screens/TierConfirmationScreen';
@@ -28,6 +29,7 @@ export default function HomePage(): React.ReactElement {
   const [setupRooms, setSetupRooms] = useState<ShootRoom[]>([]);
 
   const shootHook = useShoot();
+  const { syncShoot, syncNow } = useShootSync();
   const activeShoot = shootHook.shoot;
 
   // Resume active shoot on page load
@@ -36,6 +38,33 @@ export default function HomePage(): React.ReactElement {
       setScreen(activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Background sync to Supabase on every state change
+  useEffect(() => {
+    if (activeShoot) {
+      syncShoot(activeShoot);
+    }
+  }, [activeShoot, syncShoot]);
+
+  // Background timer — keeps ticking even when not on Timer screen
+  const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bgSecondsRef = useRef(activeShoot?.timerSeconds ?? 0);
+  bgSecondsRef.current = activeShoot?.timerSeconds ?? 0;
+
+  useEffect(() => {
+    if (activeShoot?.timerRunning && screen !== 'timer') {
+      bgTimerRef.current = setInterval(() => {
+        bgSecondsRef.current += 1;
+        shootHook.updateTimerSeconds(bgSecondsRef.current);
+      }, 1000);
+    }
+    return () => {
+      if (bgTimerRef.current) {
+        clearInterval(bgTimerRef.current);
+        bgTimerRef.current = null;
+      }
+    };
+  }, [activeShoot?.timerRunning, screen, shootHook]);
 
   const handleSelectAppointment = useCallback(
     (appointment: AryeoAppointment): void => {
@@ -63,7 +92,7 @@ export default function HomePage(): React.ReactElement {
       const photographerId: PhotographerId =
         selectedAppointment.shooterIds[0] || 'nick';
 
-      shootHook.startShoot(
+      const newShoot = shootHook.startShoot(
         selectedAppointment,
         selectedTier,
         selectedMode,
@@ -71,13 +100,26 @@ export default function HomePage(): React.ReactElement {
         rooms
       );
 
+      // Immediate sync on shoot start + trigger Dropbox folder creation
+      syncNow(newShoot);
+      fetch('/api/dropbox/create-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderNumber: selectedAppointment.orderNumber,
+          agentName: selectedAppointment.agentName,
+          address: selectedAppointment.address,
+        }),
+      }).catch(() => {}); // Fire and forget
+
       setScreen(selectedMode === 'detail' ? 'room_tracker' : 'quick_count');
     },
-    [selectedAppointment, selectedTier, selectedMode, shootHook]
+    [selectedAppointment, selectedTier, selectedMode, shootHook, syncNow]
   );
 
   const handleCompleteShoot = useCallback((): void => {
     shootHook.completeShoot();
+    // syncNow will fire via the useEffect on next render
     setScreen('completion');
   }, [shootHook]);
 

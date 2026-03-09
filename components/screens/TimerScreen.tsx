@@ -36,18 +36,21 @@ export default function TimerScreen({
   onBack,
 }: Props): React.ReactElement {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const secondsRef = useRef(shoot.timerSeconds);
+  secondsRef.current = shoot.timerSeconds;
 
-  // Timer tick
+  // Timer tick — uses ref to avoid stale closure
   useEffect(() => {
     if (shoot.timerRunning) {
       intervalRef.current = setInterval(() => {
-        shootHook.updateTimerSeconds(shoot.timerSeconds + 1);
+        secondsRef.current += 1;
+        shootHook.updateTimerSeconds(secondsRef.current);
       }, 1000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [shoot.timerRunning, shoot.timerSeconds, shootHook]);
+  }, [shoot.timerRunning, shootHook]);
 
   // SVG ring for timer
   const ringSize = 220;
