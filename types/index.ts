@@ -45,7 +45,9 @@ export type AppScreen =
   | 'room_tracker'
   | 'quick_count'
   | 'timer'
-  | 'completion';
+  | 'completion'
+  | 'settings'
+  | 'reports';
 
 // Photographer IDs
 export type PhotographerId = 'nick' | 'jared' | 'ben';

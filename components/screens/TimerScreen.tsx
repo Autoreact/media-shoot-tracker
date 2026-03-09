@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShootState } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -80,6 +80,46 @@ export default function TimerScreen({
   });
 
   const isRunning = shoot.timerRunning;
+
+  // Click-to-type time editing
+  const [editingStart, setEditingStart] = useState(false);
+  const [editingEnd, setEditingEnd] = useState(false);
+  const startInputRef = useRef<HTMLInputElement>(null);
+  const endInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTimeInput = (
+    value: string,
+    field: 'start' | 'end'
+  ): void => {
+    // Parse HH:MM format from time input
+    const parts = value.split(':').map(Number);
+    const hours = parts[0];
+    const minutes = parts[1];
+    if (hours === undefined || minutes === undefined || isNaN(hours) || isNaN(minutes)) return;
+
+    const current = field === 'start' ? shoot.startTime : shoot.endTime;
+    const d = current ? new Date(current) : new Date();
+    d.setHours(hours, minutes, 0, 0);
+    const iso = d.toISOString();
+
+    if (field === 'start') {
+      shootHook.adjustStartTime(0); // Reset first
+      // Direct set via the hook's internal setter
+      const diff = (d.getTime() - new Date(shoot.startTime || Date.now()).getTime()) / 60000;
+      shootHook.adjustStartTime(Math.round(diff));
+      setEditingStart(false);
+    } else {
+      const diff = (d.getTime() - new Date(shoot.endTime || Date.now()).getTime()) / 60000;
+      shootHook.adjustEndTime(Math.round(diff));
+      setEditingEnd(false);
+    }
+  };
+
+  const formatTimeForInput = (iso: string | null): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-toggl-dark-bg animate-fade-in">
@@ -185,9 +225,26 @@ export default function TimerScreen({
               >
                 <ChevronLeftIcon className="w-3 h-3 text-toggl-muted" />
               </button>
-              <span className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums">
-                {formatTimeDisplay(shoot.startTime)}
-              </span>
+              {editingStart ? (
+                <input
+                  ref={startInputRef}
+                  type="time"
+                  defaultValue={formatTimeForInput(shoot.startTime)}
+                  onBlur={(e) => handleTimeInput(e.target.value, 'start')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTimeInput((e.target as HTMLInputElement).value, 'start');
+                  }}
+                  autoFocus
+                  className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums bg-toggl-controls rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-toggl-pink"
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingStart(true)}
+                  className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums hover:text-toggl-pink transition-colors"
+                >
+                  {formatTimeDisplay(shoot.startTime)}
+                </button>
+              )}
               <button
                 onClick={() => shootHook.adjustStartTime(5)}
                 className="w-7 h-7 rounded-lg bg-toggl-controls flex items-center justify-center flex-shrink-0"
@@ -207,9 +264,26 @@ export default function TimerScreen({
               >
                 <ChevronLeftIcon className="w-3 h-3 text-toggl-muted" />
               </button>
-              <span className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums">
-                {formatTimeDisplay(shoot.endTime)}
-              </span>
+              {editingEnd ? (
+                <input
+                  ref={endInputRef}
+                  type="time"
+                  defaultValue={formatTimeForInput(shoot.endTime)}
+                  onBlur={(e) => handleTimeInput(e.target.value, 'end')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTimeInput((e.target as HTMLInputElement).value, 'end');
+                  }}
+                  autoFocus
+                  className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums bg-toggl-controls rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-toggl-pink"
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingEnd(true)}
+                  className="text-sm font-semibold text-white min-w-[4.5rem] text-center font-mono tabular-nums hover:text-toggl-pink transition-colors"
+                >
+                  {formatTimeDisplay(shoot.endTime)}
+                </button>
+              )}
               <button
                 onClick={() => shootHook.adjustEndTime(5)}
                 className="w-7 h-7 rounded-lg bg-toggl-controls flex items-center justify-center flex-shrink-0"

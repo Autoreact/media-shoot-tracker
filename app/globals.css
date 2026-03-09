@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Class-based dark mode for Tailwind 4 */
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
   /* ═══════════════════════════════════════════════════════════ */
   /* PRIMARY — Stripe Purple #635BFF                            */
@@ -95,6 +98,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dark body,
+:is(.dark) body {
+  background: #0F0F1A;
+  color: #E3E8EF;
+}
+
 /* ═══════════════════════════════════════════════════════════ */
 /* ANIMATIONS                                                  */
 /* ═══════════════════════════════════════════════════════════ */
@@ -152,6 +161,18 @@ body {
   background: #fff;
   border-color: var(--color-neutral-200);
   color: var(--color-neutral-500);
+}
+
+:is(.dark) .chip.done {
+  background: #0C2E10;
+  border-color: var(--color-success-500);
+  color: var(--color-success-400);
+}
+
+:is(.dark) .chip:not(.done) {
+  background: #1F2933;
+  border-color: var(--color-neutral-700);
+  color: var(--color-neutral-400);
 }
 
 /* ═══════════════════════════════════════════════════════════ */

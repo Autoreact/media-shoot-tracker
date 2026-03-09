@@ -76,14 +76,14 @@ export default function RoomTrackerScreen({
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white px-4 pt-3 pb-0 border-b border-neutral-100">
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 px-4 pt-3 pb-0 border-b border-neutral-100 dark:border-neutral-800">
         {/* Title row */}
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="text-base font-bold text-neutral-950 truncate max-w-[200px]">
+            <h2 className="text-base font-bold text-neutral-950 dark:text-white truncate max-w-[200px]">
               {shoot.address || 'Room Tracker'}
             </h2>
-            <p className="text-[10px] text-neutral-400">
+            <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
               {shoot.tier} · {shoot.target} target
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function RoomTrackerScreen({
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
                   isActive
                     ? 'bg-primary-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
                 }`}
               >
                 {CATEGORY_LABELS[cat]}
@@ -162,11 +162,11 @@ export default function RoomTrackerScreen({
       </div>
 
       {/* Progress Footer + Complete Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-100">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
         <div className="max-w-md mx-auto">
           {/* Stats */}
           <div className="px-4 py-2 flex items-center justify-between text-xs">
-            <span className="font-bold text-neutral-900">
+            <span className="font-bold text-neutral-900 dark:text-white">
               {totals.actualTotal}{' '}
               <span className="text-neutral-400 font-normal">
                 / {shoot.target} shots
@@ -233,8 +233,8 @@ function RoomCard({
     <div
       className={`p-3 rounded-xl border transition-colors ${
         room.completed
-          ? 'bg-success-50 border-success-500/30'
-          : 'bg-white border-neutral-200'
+          ? 'bg-success-50 dark:bg-success-900/20 border-success-500/30'
+          : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
       }`}
     >
       <div className="flex items-center justify-between mb-2">
@@ -268,7 +268,7 @@ function RoomCard({
           </div>
           <span
             className={`text-sm font-semibold ${
-              room.completed ? 'text-success-700' : 'text-neutral-900'
+              room.completed ? 'text-success-700 dark:text-success-400' : 'text-neutral-900 dark:text-white'
             }`}
           >
             {room.name}
@@ -292,11 +292,11 @@ function RoomCard({
         <div className="flex items-center gap-3">
           <button
             onClick={onDecrement}
-            className="w-14 h-14 rounded-xl bg-neutral-100 flex items-center justify-center active:bg-neutral-200 transition-colors"
+            className="w-14 h-14 rounded-xl bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center active:bg-neutral-200 dark:active:bg-neutral-600 transition-colors"
           >
-            <MinusIcon className="w-5 h-5 text-neutral-600" />
+            <MinusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
           </button>
-          <span className="text-3xl font-bold text-neutral-950 min-w-[3ch] text-center tabular-nums">
+          <span className="text-3xl font-bold text-neutral-950 dark:text-white min-w-[3ch] text-center tabular-nums">
             {room.actualShots}
           </span>
           <button

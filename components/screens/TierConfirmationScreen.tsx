@@ -43,26 +43,26 @@ export default function TierConfirmationScreen({
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white px-4 pt-4 pb-3 border-b border-neutral-100">
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 px-4 pt-4 pb-3 border-b border-neutral-100 dark:border-neutral-800">
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center text-neutral-600"
+            className="w-8 h-8 flex items-center justify-center text-neutral-600 dark:text-neutral-400"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
-          <h2 className="text-lg font-bold text-neutral-950">Confirm Details</h2>
+          <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Confirm Details</h2>
         </div>
       </div>
 
       <div className="flex-1 px-4 py-3 space-y-3 pb-24">
         {/* Property Header */}
         <div>
-          <h1 className="text-[22px] font-bold text-neutral-950">
+          <h1 className="text-[22px] font-bold text-neutral-950 dark:text-white">
             {appointment.address || 'Enter Address'}
           </h1>
           {appointment.city && (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
               {appointment.city}, {appointment.state} {appointment.zip}
             </p>
           )}
@@ -81,29 +81,29 @@ export default function TierConfirmationScreen({
           ].map((stat) => (
             <div
               key={stat.label}
-              className="bg-neutral-50 rounded-lg p-2 text-center border border-neutral-100"
+              className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-2 text-center border border-neutral-100 dark:border-neutral-700"
             >
               <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
                 {stat.label}
               </p>
-              <p className="text-sm font-bold text-neutral-900">{stat.value}</p>
+              <p className="text-sm font-bold text-neutral-900 dark:text-white">{stat.value}</p>
             </div>
           ))}
         </div>
 
         {/* Agent Contact Card */}
         {appointment.agentName && (
-          <div className="bg-white rounded-xl border border-neutral-200 p-3">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-700">
+              <div className="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-400">
                 {getInitials(appointment.agentName)}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-neutral-950">
+                <p className="text-sm font-semibold text-neutral-950 dark:text-white">
                   {appointment.agentName}
                 </p>
                 {appointment.brokerage && (
-                  <p className="text-xs text-neutral-500">{appointment.brokerage}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">{appointment.brokerage}</p>
                 )}
                 <p className="text-[10px] text-neutral-400">
                   Order #{appointment.orderNumber}
@@ -130,7 +130,7 @@ export default function TierConfirmationScreen({
         )}
 
         {/* AI Tier Suggestion */}
-        <div className="bg-primary-50 rounded-xl p-3 border border-primary-100">
+        <div className="bg-primary-50 dark:bg-primary-900/30 rounded-xl p-3 border border-primary-100 dark:border-primary-800">
           <div className="flex items-center gap-2 mb-1">
             <SparklesIcon className="w-4 h-4 text-primary-500" />
             <span className="text-xs font-semibold text-primary-700">
@@ -146,7 +146,7 @@ export default function TierConfirmationScreen({
 
         {/* Tier Selector */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
             Select Tier
           </p>
           <div className="flex flex-wrap gap-2">
@@ -161,7 +161,7 @@ export default function TierConfirmationScreen({
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isSelected
                       ? 'bg-primary-500 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200'
                   }`}
                 >
                   {info.displayName}
@@ -179,7 +179,7 @@ export default function TierConfirmationScreen({
 
         {/* Mode Selector */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
             Tracking Mode
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -187,12 +187,12 @@ export default function TierConfirmationScreen({
               onClick={() => setSelectedMode('detail')}
               className={`p-3 rounded-xl text-left border-2 transition-colors ${
                 selectedMode === 'detail'
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-neutral-200 bg-white'
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                  : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800'
               }`}
             >
-              <p className="text-sm font-bold text-neutral-950">Room Tracker</p>
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-sm font-bold text-neutral-950 dark:text-white">Room Tracker</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                 Track each room individually
               </p>
             </button>
@@ -200,12 +200,12 @@ export default function TierConfirmationScreen({
               onClick={() => setSelectedMode('quick')}
               className={`p-3 rounded-xl text-left border-2 transition-colors ${
                 selectedMode === 'quick'
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-neutral-200 bg-white'
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                  : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800'
               }`}
             >
-              <p className="text-sm font-bold text-neutral-950">Quick Count</p>
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-sm font-bold text-neutral-950 dark:text-white">Quick Count</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                 Simple tap counter
               </p>
             </button>
@@ -214,7 +214,7 @@ export default function TierConfirmationScreen({
       </div>
 
       {/* Start Shoot Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-neutral-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
         <div className="max-w-md mx-auto">
           <button
             onClick={() => onConfirm(selectedTier, selectedMode)}

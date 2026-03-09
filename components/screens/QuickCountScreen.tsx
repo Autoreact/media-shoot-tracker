@@ -52,13 +52,13 @@ export default function QuickCountScreen({
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white px-4 pt-3 pb-3 border-b border-neutral-100">
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 px-4 pt-3 pb-3 border-b border-neutral-100 dark:border-neutral-800">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-neutral-950 truncate max-w-[200px]">
+            <h2 className="text-base font-bold text-neutral-950 dark:text-white truncate max-w-[200px]">
               {shoot.address || 'Quick Count'}
             </h2>
-            <p className="text-[10px] text-neutral-400">
+            <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
               {shoot.tier} · {shoot.target} target
             </p>
           </div>
@@ -81,13 +81,13 @@ export default function QuickCountScreen({
 
       <div className="flex-1 px-4 py-4 flex flex-col items-center pb-40">
         {/* Giant Counter */}
-        <div className="text-[64px] font-black text-neutral-950 leading-none tabular-nums mb-1">
+        <div className="text-[64px] font-black text-neutral-950 dark:text-white leading-none tabular-nums mb-1">
           {shoot.quickCountTotal}
         </div>
 
         {/* Target row */}
-        <div className="text-sm text-neutral-400 mb-6">
-          of <span className="font-semibold text-neutral-600">{shoot.target}</span> target
+        <div className="text-sm text-neutral-400 dark:text-neutral-500 mb-6">
+          of <span className="font-semibold text-neutral-600 dark:text-neutral-300">{shoot.target}</span> target
         </div>
 
         {/* + Button — full width, 80px tall */}
@@ -107,9 +107,9 @@ export default function QuickCountScreen({
             shootHook.decrementQuickCount();
             hapticDecrement();
           }}
-          className="w-32 h-12 rounded-xl bg-neutral-200 flex items-center justify-center active:bg-neutral-300 transition-colors mx-auto mb-6"
+          className="w-32 h-12 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center active:bg-neutral-300 dark:active:bg-neutral-600 transition-colors mx-auto mb-6"
         >
-          <MinusIcon className="w-6 h-6 text-neutral-600" />
+          <MinusIcon className="w-6 h-6 text-neutral-600 dark:text-neutral-300" />
         </button>
 
         {/* SVG Progress Ring */}
@@ -144,7 +144,7 @@ export default function QuickCountScreen({
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-lg font-bold text-neutral-600">
+            <span className="text-lg font-bold text-neutral-600 dark:text-neutral-300">
               {Math.round(progress * 100)}%
             </span>
           </div>
@@ -152,7 +152,7 @@ export default function QuickCountScreen({
 
         {/* Room Chips — tap to toggle done */}
         <div className="w-full">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
             Rooms
           </p>
           <div className="flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default function QuickCountScreen({
       </div>
 
       {/* Complete Button — Always visible */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-neutral-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
         <div className="max-w-md mx-auto">
           <button
             onClick={onComplete}

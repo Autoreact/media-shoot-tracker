@@ -151,19 +151,19 @@ export default function CompletionScreen({
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center text-neutral-600"
+            className="w-8 h-8 flex items-center justify-center text-neutral-600 dark:text-neutral-400"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
-          <h2 className="text-lg font-bold text-neutral-950">Shoot Complete</h2>
+          <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Shoot Complete</h2>
         </div>
       </div>
 
       <div className="flex-1 px-4 py-3 space-y-3 pb-24">
         {/* Success Banner */}
-        <div className="bg-success-50 rounded-xl p-4 border border-success-500/20 text-center">
+        <div className="bg-success-50 dark:bg-success-900/20 rounded-xl p-4 border border-success-500/20 text-center">
           <CheckCircleIcon className="w-10 h-10 text-success-500 mx-auto mb-2" />
-          <h3 className="text-base font-bold text-success-900">
+          <h3 className="text-base font-bold text-success-900 dark:text-success-400">
             Shoot Complete!
           </h3>
           <p className="text-xs text-success-700 mt-0.5">
@@ -173,19 +173,19 @@ export default function CompletionScreen({
 
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white rounded-xl p-3 border border-neutral-200 text-center">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
               Shots
             </p>
-            <p className="text-2xl font-black text-neutral-950">{totals.actualTotal}</p>
+            <p className="text-2xl font-black text-neutral-950 dark:text-white">{totals.actualTotal}</p>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-neutral-200 text-center">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
               Target
             </p>
-            <p className="text-2xl font-black text-neutral-950">{shoot.target}</p>
+            <p className="text-2xl font-black text-neutral-950 dark:text-white">{shoot.target}</p>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-neutral-200 text-center">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
               Variance
             </p>
@@ -201,9 +201,9 @@ export default function CompletionScreen({
         </div>
 
         {/* Duration Editor */}
-        <div className="bg-white rounded-xl p-3 border border-neutral-200">
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-neutral-700">Duration</p>
+            <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">Duration</p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => adjustDuration(-5)}
@@ -255,7 +255,7 @@ export default function CompletionScreen({
         )}
 
         {/* Dropbox Folder */}
-        <div className="bg-white rounded-xl p-3 border border-neutral-200">
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center gap-2 mb-1">
             <FolderIcon className="w-4 h-4 text-primary-500" />
             <span className="text-xs font-semibold text-neutral-700">
@@ -271,8 +271,8 @@ export default function CompletionScreen({
         </div>
 
         {/* File Uploads — Drone + Lot Lines */}
-        <div className="bg-white rounded-xl p-3 border border-neutral-200">
-          <p className="text-xs font-semibold text-neutral-700 mb-2">Attachments</p>
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700">
+          <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">Attachments</p>
 
           {/* Drone Photos */}
           <div className="mb-3">
@@ -366,8 +366,8 @@ export default function CompletionScreen({
         </div>
 
         {/* Global Notes */}
-        <div className="bg-white rounded-xl p-3 border border-neutral-200">
-          <p className="text-xs font-semibold text-neutral-700 mb-1.5">Notes</p>
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700">
+          <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">Notes</p>
           <textarea
             value={shoot.globalNotes}
             onChange={(e) => shootHook.updateGlobalNotes(e.target.value)}
@@ -378,8 +378,8 @@ export default function CompletionScreen({
 
         {/* Room notes summary */}
         {shoot.rooms.some((r) => r.notes) && (
-          <div className="bg-white rounded-xl p-3 border border-neutral-200">
-            <p className="text-xs font-semibold text-neutral-700 mb-1.5">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-3 border border-neutral-200 dark:border-neutral-700">
+            <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Room Notes
             </p>
             <div className="space-y-1">
@@ -399,7 +399,7 @@ export default function CompletionScreen({
       </div>
 
       {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-neutral-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
         <div className="max-w-md mx-auto space-y-2">
           <button
             onClick={handleSendEmail}
@@ -418,7 +418,7 @@ export default function CompletionScreen({
           </button>
           <button
             onClick={onNewShoot}
-            className="w-full py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors"
+            className="w-full py-3 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
           >
             Start New Shoot
           </button>

@@ -78,17 +78,17 @@ export default function RoomSetupScreen({
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white px-4 pt-4 pb-3 border-b border-neutral-100">
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 px-4 pt-4 pb-3 border-b border-neutral-100 dark:border-neutral-800">
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center text-neutral-600"
+            className="w-8 h-8 flex items-center justify-center text-neutral-600 dark:text-neutral-400"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">Room Setup</h2>
-            <p className="text-xs text-neutral-500">
+            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Room Setup</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {enabledCount} rooms · ~{totalExpected} shots
             </p>
           </div>
@@ -99,7 +99,7 @@ export default function RoomSetupScreen({
         {/* Room groups */}
         {grouped.map((group) => (
           <div key={group.category}>
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
               {group.label}
             </h3>
             <div className="space-y-1">
@@ -109,8 +109,8 @@ export default function RoomSetupScreen({
                   onClick={() => toggleRoom(room.id)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
                     room.enabled
-                      ? 'bg-white border-neutral-200'
-                      : 'bg-neutral-50 border-neutral-100 opacity-50'
+                      ? 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
+                      : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-100 dark:border-neutral-700/50 opacity-50'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -127,11 +127,11 @@ export default function RoomSetupScreen({
                         </svg>
                       )}
                     </div>
-                    <span className="text-sm font-medium text-neutral-800">
+                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
                       {room.name}
                     </span>
                   </div>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
                     {room.expectedShots} shots
                   </span>
                 </button>
@@ -157,7 +157,7 @@ export default function RoomSetupScreen({
                 <button
                   key={qa.id}
                   onClick={() => addQuickAddRoom(qa)}
-                  className="px-3 py-1.5 bg-white border border-dashed border-neutral-300 rounded-lg text-xs font-medium text-neutral-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                  className="px-3 py-1.5 bg-white dark:bg-neutral-800 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:border-primary-400 hover:text-primary-600 transition-colors"
                 >
                   + {qa.name}
                 </button>
@@ -168,7 +168,7 @@ export default function RoomSetupScreen({
       </div>
 
       {/* Start Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-neutral-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
         <div className="max-w-md mx-auto">
           <button
             onClick={() => onComplete(rooms.filter((r) => r.enabled))}

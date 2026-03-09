@@ -11,6 +11,7 @@ import {
 } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
 import { useShootSync } from '@/lib/hooks/useShootSync';
+import { useSettings } from '@/lib/hooks/useSettings';
 import { generateRoomList } from '@/lib/utils/generate-rooms';
 import AppointmentsScreen from '@/components/screens/AppointmentsScreen';
 import TierConfirmationScreen from '@/components/screens/TierConfirmationScreen';
@@ -19,6 +20,8 @@ import RoomTrackerScreen from '@/components/screens/RoomTrackerScreen';
 import QuickCountScreen from '@/components/screens/QuickCountScreen';
 import TimerScreen from '@/components/screens/TimerScreen';
 import CompletionScreen from '@/components/screens/CompletionScreen';
+import SettingsScreen from '@/components/screens/SettingsScreen';
+import ReportsScreen from '@/components/screens/ReportsScreen';
 
 export default function HomePage(): React.ReactElement {
   const [screen, setScreen] = useState<AppScreen>('appointments');
@@ -30,6 +33,7 @@ export default function HomePage(): React.ReactElement {
 
   const shootHook = useShoot();
   const { syncShoot, syncNow } = useShootSync();
+  const { settings, update: updateSettings } = useSettings();
   const activeShoot = shootHook.shoot;
 
   // Resume active shoot on page load
@@ -90,7 +94,7 @@ export default function HomePage(): React.ReactElement {
       if (!selectedAppointment) return;
 
       const photographerId: PhotographerId =
-        selectedAppointment.shooterIds[0] || 'nick';
+        selectedAppointment.shooterIds[0] || settings.defaultPhotographer;
 
       const newShoot = shootHook.startShoot(
         selectedAppointment,
@@ -114,14 +118,34 @@ export default function HomePage(): React.ReactElement {
 
       setScreen(selectedMode === 'detail' ? 'room_tracker' : 'quick_count');
     },
-    [selectedAppointment, selectedTier, selectedMode, shootHook, syncNow]
+    [selectedAppointment, selectedTier, selectedMode, shootHook, syncNow, settings.defaultPhotographer]
   );
 
   const handleCompleteShoot = useCallback((): void => {
     shootHook.completeShoot();
-    // syncNow will fire via the useEffect on next render
+    // Save to shoot history for reports
+    if (activeShoot) {
+      try {
+        const stored = localStorage.getItem('v2-shoot-history');
+        const history = stored ? JSON.parse(stored) : [];
+        const completed = {
+          ...activeShoot,
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        };
+        // Deduplicate by order number
+        const filtered = history.filter(
+          (s: { aryeoOrderNumber: string }) =>
+            s.aryeoOrderNumber !== activeShoot.aryeoOrderNumber
+        );
+        filtered.unshift(completed);
+        localStorage.setItem('v2-shoot-history', JSON.stringify(filtered));
+      } catch {
+        // Silent fail
+      }
+    }
     setScreen('completion');
-  }, [shootHook]);
+  }, [shootHook, activeShoot]);
 
   const handleNewShoot = useCallback((): void => {
     shootHook.clearShoot();
@@ -147,17 +171,23 @@ export default function HomePage(): React.ReactElement {
       case 'completion':
         setScreen(activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count');
         break;
+      case 'settings':
+      case 'reports':
+        setScreen('appointments');
+        break;
       default:
         setScreen('appointments');
     }
   }, [screen, activeShoot]);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-[#0F0F1A]">
       <div className="max-w-md mx-auto">
         {screen === 'appointments' && (
           <AppointmentsScreen
             onSelectAppointment={handleSelectAppointment}
+            onSettings={() => setScreen('settings')}
+            onReports={() => setScreen('reports')}
           />
         )}
 
@@ -220,6 +250,18 @@ export default function HomePage(): React.ReactElement {
             onNewShoot={handleNewShoot}
             onBack={goBack}
           />
+        )}
+
+        {screen === 'settings' && (
+          <SettingsScreen
+            settings={settings}
+            onUpdate={updateSettings}
+            onBack={goBack}
+          />
+        )}
+
+        {screen === 'reports' && (
+          <ReportsScreen onBack={goBack} />
         )}
       </div>
     </div>
