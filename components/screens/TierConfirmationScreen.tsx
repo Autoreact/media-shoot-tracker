@@ -71,8 +71,8 @@ export default function TierConfirmationScreen({
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: 'Beds', value: appointment.beds || '—' },
-            { label: 'Baths', value: appointment.baths || '—' },
+            { label: 'Beds', value: appointment.beds != null ? appointment.beds : '–' },
+            { label: 'Baths', value: appointment.baths != null ? appointment.baths : '–' },
             { label: 'Sqft', value: appointment.sqft ? appointment.sqft.toLocaleString() : '—' },
             {
               label: 'Status',
@@ -138,7 +138,7 @@ export default function TierConfirmationScreen({
             </span>
           </div>
           <p className="text-sm text-primary-800">
-            Based on {appointment.beds} beds / {appointment.baths} baths →{' '}
+            Based on {appointment.beds ?? '–'} beds / {appointment.baths ?? '–'} baths →{' '}
             <strong>{TIER_INFO[suggestedTier].displayName}</strong> (~
             {TIER_INFO[suggestedTier].targetShots} shots)
           </p>

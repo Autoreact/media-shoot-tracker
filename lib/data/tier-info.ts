@@ -79,12 +79,14 @@ export function getTierInfo(tier: PropertyTier): TierInfo {
 }
 
 /** Auto-select tier based on beds/baths from Aryeo */
-export function autoSelectTier(beds: number, baths: number): PropertyTier {
-  if (beds <= 1) return 'studio';
-  if (beds === 2 && baths <= 2) return 'two_two';
-  if (beds === 3 && baths <= 2) return 'three_two';
-  if (beds === 4 && baths <= 3) return 'four_three';
-  if (beds === 5 && baths <= 3) return 'five_three';
-  if (beds === 5 && baths >= 4) return 'five_four';
+export function autoSelectTier(beds: number | null, baths: number | null): PropertyTier {
+  const b = beds ?? 3; // Default to 3/2 when unknown
+  const ba = baths ?? 2;
+  if (b <= 1) return 'studio';
+  if (b === 2 && ba <= 2) return 'two_two';
+  if (b === 3 && ba <= 2) return 'three_two';
+  if (b === 4 && ba <= 3) return 'four_three';
+  if (b === 5 && ba <= 3) return 'five_three';
+  if (b === 5 && ba >= 4) return 'five_four';
   return 'six_five';
 }

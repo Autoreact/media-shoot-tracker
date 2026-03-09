@@ -121,9 +121,9 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 pb-2 px-4 pt-4">
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 pb-3 px-4 pt-4">
         {/* Top bar */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center">
               <span className="text-white text-xs font-bold">NR</span>
@@ -149,7 +149,7 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
         </div>
 
         {/* Date Navigation */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => navigateDate(-1)}
             className="w-8 h-8 flex items-center justify-center text-neutral-500 dark:text-neutral-400"
@@ -177,8 +177,8 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
           </button>
         </div>
 
-        {/* Date pills */}
-        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+        {/* Date pills — centered */}
+        <div className="flex gap-2 justify-center pb-2 hide-scrollbar">
           {datePills.map((d, i) => {
             const isSelected = d.toDateString() === currentDate.toDateString();
             const isTodayPill = d.toDateString() === new Date().toDateString();
@@ -200,8 +200,8 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
           })}
         </div>
 
-        {/* Shooter Filter */}
-        <div className="flex gap-2 pb-2">
+        {/* Shooter Filter — centered */}
+        <div className="flex gap-2 justify-center pb-2">
           <button
             onClick={() => setShooterFilter('all')}
             className={`px-3 py-1.5 rounded-full text-sm font-medium ${
@@ -243,8 +243,21 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
       {/* Appointment List */}
       <div className="flex-1 px-4 pb-24 space-y-2">
         {loading ? (
-          <div className="text-center py-12 text-neutral-400 dark:text-neutral-500 text-sm">
-            Loading appointments...
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="p-4 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 animate-pulse">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-5 w-16 bg-neutral-200 dark:bg-neutral-700 rounded-lg" />
+                  <div className="h-5 w-14 bg-neutral-200 dark:bg-neutral-700 rounded-full" />
+                </div>
+                <div className="h-5 w-48 bg-neutral-200 dark:bg-neutral-700 rounded mb-2" />
+                <div className="h-3 w-32 bg-neutral-100 dark:bg-neutral-700 rounded mb-3" />
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 bg-neutral-200 dark:bg-neutral-700 rounded-full" />
+                  <div className="h-3 w-24 bg-neutral-100 dark:bg-neutral-700 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-neutral-400 dark:text-neutral-500 text-sm">
@@ -386,7 +399,9 @@ function AppointmentCard({
 
       {/* Property stats */}
       <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-        <span>{appointment.beds} bed · {appointment.baths} bath</span>
+        <span>
+          {appointment.beds != null ? appointment.beds : '–'} bed · {appointment.baths != null ? appointment.baths : '–'} bath
+        </span>
         {appointment.sqft > 0 && (
           <>
             <span className="text-neutral-300">|</span>
@@ -437,7 +452,7 @@ function AppointmentCard({
         <span>Order #{appointment.orderNumber}</span>
         <div className="flex items-center gap-1">
           <span className="font-medium text-primary-500">
-            {appointment.beds}/{appointment.baths} tier
+            {appointment.beds ?? '–'}/{appointment.baths ?? '–'} tier
           </span>
           <ChevronRightIcon className="w-3 h-3 text-neutral-400" />
         </div>

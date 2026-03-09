@@ -18,7 +18,6 @@ function mapPhotographer(firstName?: string): PhotographerId | null {
 function parseSqftFromItems(items: { subtitle?: string; sub_title?: string }[]): number {
   for (const item of items) {
     const text = item.subtitle || item.sub_title || '';
-    // Match patterns like "(2,000 to 2,999 SQFT)" or "(Up to 2,999 SQFT)"
     const rangeMatch = text.match(/(\d[\d,]*)\s*to\s*(\d[\d,]*)\s*SQFT/i);
     if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
       const low = parseInt(rangeMatch[1].replace(/,/g, ''));
@@ -39,16 +38,50 @@ function parseSqftFromItems(items: { subtitle?: string; sub_title?: string }[]):
 
 /** Infer bed/bath count from item titles when listing.building has no data */
 function inferBedsFromServiceTitle(items: { title?: string; subtitle?: string; sub_title?: string }[]): { beds: number; baths: number } {
-  // Some order forms encode property size in the service tier name
   for (const item of items) {
     const title = (item.title || '').toLowerCase();
-    // Look for patterns like "4/3" or "5 bed 3 bath" in titles
     const slashMatch = title.match(/(\d+)\s*\/\s*(\d+)/);
     if (slashMatch && slashMatch[1] && slashMatch[2]) {
       return { beds: parseInt(slashMatch[1]), baths: parseInt(slashMatch[2]) };
     }
   }
   return { beds: 0, baths: 0 };
+}
+
+/**
+ * Parse service names from Aryeo items into clean display names.
+ * Examples:
+ *   "Economy Photos+ Standard" → "Economy Standard Photos"
+ *   "Economy Photos+ Express" → "Economy Express Photos"
+ *   "Ultra High Def Photos+ Standard" → "Ultra HD Standard Photos"
+ *   "Drone Photos" → "Drone"
+ *   "3D Tour" → "3D Tour"
+ */
+function parseServiceName(title: string): string {
+  const t = title.trim();
+
+  // Detect photo quality tier
+  const isUltraHD = /ultra\s*(high\s*def|hd)/i.test(t);
+  const isEconomy = /economy/i.test(t);
+
+  // Detect delivery speed
+  const isExpress = /express/i.test(t);
+  const isStandard = /standard/i.test(t);
+
+  // If it's a Photos+ item, build a descriptive name
+  if (/photos?\+?/i.test(t) && (isUltraHD || isEconomy)) {
+    const tier = isUltraHD ? 'Ultra HD' : 'Economy';
+    const speed = isExpress ? 'Express' : isStandard ? 'Standard' : '';
+    return `${tier} ${speed} Photos`.replace(/\s+/g, ' ').trim();
+  }
+
+  // Non-photo services — clean up common suffixes
+  return t
+    .replace(/\s*photos?\+?\s*/i, ' Photos ')
+    .replace(/\s*\(Standard\)/i, '')
+    .replace(/\s*\(Express\)/i, ' Express')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -63,17 +96,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // Fetch from Aryeo API
+    // Fetch from Aryeo API — only what we need, 25 most recent orders
     // Valid includes: items, appointments, appointments.users, customer, listing, payments
     // Note: 'address' is NOT a valid include — address data is always on the order object
     const res = await fetch(
-      `${ARYEO_BASE_URL}/orders?include=items,appointments,appointments.users,customer,listing,payments&per_page=100`,
+      `${ARYEO_BASE_URL}/orders?include=items,appointments,appointments.users,customer,listing&per_page=25`,
       {
         headers: {
           Authorization: `Bearer ${ARYEO_API_KEY}`,
           Accept: 'application/json',
         },
-        next: { revalidate: 300 }, // 5-minute cache
+        next: { revalidate: 120 }, // 2-minute cache
       }
     );
 
@@ -134,8 +167,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
         // Property data from listing.building
         const building = order.listing?.building || {};
-        let beds = building.bedrooms || building.bedrooms_number || 0;
-        let baths = building.bathrooms || 0;
+        let beds: number | null = building.bedrooms || building.bedrooms_number || null;
+        let baths: number | null = building.bathrooms || null;
         let sqft = building.square_feet || 0;
 
         // Fallback: try custom_fields if building data is empty
@@ -143,8 +176,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           for (const field of order.custom_fields) {
             const label = String(field.label || '').toLowerCase();
             const value = String(field.value || '');
-            if (beds === 0 && label.includes('bed')) beds = parseInt(value) || 0;
-            if (baths === 0 && label.includes('bath')) baths = parseInt(value) || 0;
+            if (!beds && label.includes('bed')) beds = parseInt(value) || null;
+            if (!baths && label.includes('bath')) baths = parseInt(value) || null;
             if (sqft === 0 && (label.includes('sqft') || label.includes('sq ft') || label.includes('square')))
               sqft = parseInt(value.replace(/,/g, '')) || 0;
           }
@@ -157,10 +190,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }
 
         // Fallback: infer beds/baths from item titles
-        if (beds === 0 && baths === 0) {
+        if (!beds && !baths) {
           const inferred = inferBedsFromServiceTitle(items);
-          beds = inferred.beds;
-          baths = inferred.baths;
+          beds = inferred.beds || null;
+          baths = inferred.baths || null;
         }
 
         // Furnished detection from custom_fields
@@ -175,17 +208,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           }
         }
 
-        // Get ordered services (clean titles)
+        // Get ordered services — parse into clean display names
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const services: string[] = items.map((item: any) => {
-          const title = item.title || 'Service';
-          // Clean up common prefixes
-          return title
-            .replace(/^Economy\s+/i, '')
-            .replace(/\s*\(Standard\)\s*/i, '')
-            .replace(/\s*\(Premium\)\s*/i, ' (Premium)')
-            .trim();
-        });
+        const services: string[] = items.map((item: any) =>
+          parseServiceName(item.title || 'Service')
+        );
 
         // Map order status to our status type
         let status: 'CONFIRMED' | 'CANCELLED' | 'RESCHEDULED' = 'CONFIRMED';

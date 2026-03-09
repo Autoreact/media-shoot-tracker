@@ -120,8 +120,8 @@ export interface AryeoAppointment {
   agentEmail: string;
   brokerage: string;
   services: string[];
-  beds: number;
-  baths: number;
+  beds: number | null; // null = unknown
+  baths: number | null; // null = unknown
   sqft: number;
   furnished: boolean;
   shooterIds: PhotographerId[];

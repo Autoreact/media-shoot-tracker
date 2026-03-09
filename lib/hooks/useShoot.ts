@@ -42,8 +42,8 @@ export function useShoot() {
         agentPhone: appointment.agentPhone,
         agentEmail: appointment.agentEmail,
         brokerage: appointment.brokerage,
-        beds: appointment.beds,
-        baths: appointment.baths,
+        beds: appointment.beds ?? 0,
+        baths: appointment.baths ?? 0,
         sqft: appointment.sqft,
         furnished: appointment.furnished,
         services: appointment.services,
@@ -316,6 +316,43 @@ export function useShoot() {
     [setShoot]
   );
 
+  // Add custom room
+  const addCustomRoom = useCallback(
+    (name: string, category: 'misc' | 'beds_baths' | 'main_living' | 'kitchen_dining' | 'exteriors' | 'twilights' = 'misc'): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        const newRoom: ShootRoom = {
+          id: `custom-${Date.now()}`,
+          templateId: '',
+          name,
+          category,
+          expectedShots: 3,
+          actualShots: 0,
+          orientation: 'H',
+          completed: false,
+          skipped: false,
+          notes: '',
+          sortOrder: prev.rooms.length,
+          isCustom: true,
+          enabled: true,
+        };
+        return { ...prev, rooms: [...prev.rooms, newRoom] };
+      });
+    },
+    [setShoot]
+  );
+
+  // Update target
+  const updateTarget = useCallback(
+    (target: number): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return { ...prev, target: Math.max(1, target) };
+      });
+    },
+    [setShoot]
+  );
+
   // Complete
   const completeShoot = useCallback((): void => {
     setShoot((prev) => {
@@ -385,6 +422,8 @@ export function useShoot() {
     decrementQuickCount,
     toggleRoomChipDone,
     setMode,
+    addCustomRoom,
+    updateTarget,
     startTimer,
     stopTimer,
     updateTimerSeconds,
