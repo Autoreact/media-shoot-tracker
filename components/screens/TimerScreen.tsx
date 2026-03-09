@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { ShootState } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { hapticTimerStart, hapticTimerStop } from '@/lib/utils/haptics';
 
 interface Props {
   shoot: ShootState;
@@ -221,7 +222,15 @@ export default function TimerScreen({
 
         {/* Start/Stop Button */}
         <button
-          onClick={isRunning ? shootHook.stopTimer : shootHook.startTimer}
+          onClick={() => {
+            if (isRunning) {
+              shootHook.stopTimer();
+              hapticTimerStop();
+            } else {
+              shootHook.startTimer();
+              hapticTimerStart();
+            }
+          }}
           className="w-full py-4 rounded-xl font-semibold text-base text-white transition-colors"
           style={{ backgroundColor: '#E57CD8' }}
         >

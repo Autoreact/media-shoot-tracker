@@ -15,6 +15,12 @@ import {
   MinusIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import {
+  hapticIncrement,
+  hapticDecrement,
+  hapticRoomDone,
+  hapticRoomUndone,
+} from '@/lib/utils/haptics';
 
 interface Props {
   shoot: ShootState;
@@ -133,9 +139,19 @@ export default function RoomTrackerScreen({
           <RoomCard
             key={room.id}
             room={room}
-            onIncrement={() => shootHook.incrementShot(room.id)}
-            onDecrement={() => shootHook.decrementShot(room.id)}
-            onToggleComplete={() => shootHook.toggleRoomComplete(room.id)}
+            onIncrement={() => {
+              shootHook.incrementShot(room.id);
+              hapticIncrement();
+            }}
+            onDecrement={() => {
+              shootHook.decrementShot(room.id);
+              hapticDecrement();
+            }}
+            onToggleComplete={() => {
+              const wasDone = room.completed;
+              shootHook.toggleRoomComplete(room.id);
+              wasDone ? hapticRoomUndone() : hapticRoomDone();
+            }}
             onUpdateNotes={(notes) => shootHook.updateRoomNotes(room.id, notes)}
             isNotesExpanded={expandedNotes === room.id}
             onToggleNotes={() =>

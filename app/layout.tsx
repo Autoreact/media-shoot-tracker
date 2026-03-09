@@ -33,9 +33,31 @@ export default function RootLayout({
 }>): React.ReactElement {
   return (
     <html lang="en">
+      <head>
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      </head>
       <body className={`${inter.variable} antialiased`}>
         {children}
+        <ServiceWorkerRegistration />
       </body>
     </html>
+  );
+}
+
+function ServiceWorkerRegistration(): React.ReactElement | null {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+          }
+        `,
+      }}
+    />
   );
 }

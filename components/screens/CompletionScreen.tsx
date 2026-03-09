@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShootState } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
 import { getTierInfo } from '@/lib/data/tier-info';
+import { hapticComplete } from '@/lib/utils/haptics';
 import {
   ChevronLeftIcon,
   ChevronUpIcon,
@@ -11,6 +12,10 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   FolderIcon,
+  CameraIcon,
+  MapIcon,
+  ArrowUpTrayIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -36,12 +41,18 @@ export default function CompletionScreen({
   const [showConfetti, setShowConfetti] = useState(true);
   const [emailSent, setEmailSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [droneFiles, setDroneFiles] = useState<{ name: string; url: string }[]>([]);
+  const [lotLineFiles, setLotLineFiles] = useState<{ name: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const droneInputRef = useRef<HTMLInputElement>(null);
+  const lotLineInputRef = useRef<HTMLInputElement>(null);
 
   const totals = shootHook.getTotals();
   const tierInfo = getTierInfo(shoot.tier);
 
-  // Confetti on mount
+  // Confetti + haptic on mount
   useEffect(() => {
+    hapticComplete();
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
   }, []);
@@ -74,6 +85,42 @@ export default function CompletionScreen({
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileUpload = async (
+    files: FileList | null,
+    type: 'drone' | 'lot_line'
+  ): Promise<void> => {
+    if (!files || files.length === 0) return;
+    setUploading(type);
+
+    const uploaded: { name: string; url: string }[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        const res = await fetch(`/api/shoots/${shoot.aryeoOrderNumber}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          uploaded.push({ name: file.name, url: data.url });
+        }
+      } catch {
+        // Skip failed files
+      }
+    }
+
+    if (type === 'drone') {
+      setDroneFiles((prev) => [...prev, ...uploaded]);
+    } else {
+      setLotLineFiles((prev) => [...prev, ...uploaded]);
+    }
+    setUploading(null);
   };
 
   return (
@@ -221,6 +268,101 @@ export default function CompletionScreen({
           <p className="text-[11px] text-neutral-500 font-mono break-all">
             {shoot.dropboxFolderPath}
           </p>
+        </div>
+
+        {/* File Uploads — Drone + Lot Lines */}
+        <div className="bg-white rounded-xl p-3 border border-neutral-200">
+          <p className="text-xs font-semibold text-neutral-700 mb-2">Attachments</p>
+
+          {/* Drone Photos */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <CameraIcon className="w-4 h-4 text-primary-500" />
+                <span className="text-xs text-neutral-600">Drone Photos</span>
+              </div>
+              <button
+                onClick={() => droneInputRef.current?.click()}
+                disabled={uploading === 'drone'}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary-50 text-primary-600 text-[10px] font-semibold"
+              >
+                <ArrowUpTrayIcon className="w-3 h-3" />
+                {uploading === 'drone' ? 'Uploading...' : 'Upload'}
+              </button>
+              <input
+                ref={droneInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files, 'drone')}
+              />
+            </div>
+            {droneFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {droneFiles.map((f, i) => (
+                  <span
+                    key={i}
+                    className="px-1.5 py-0.5 bg-primary-50 text-primary-700 text-[10px] font-medium rounded flex items-center gap-1"
+                  >
+                    {f.name}
+                    <button
+                      onClick={() =>
+                        setDroneFiles((prev) => prev.filter((_, j) => j !== i))
+                      }
+                    >
+                      <XMarkIcon className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Lot Lines */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <MapIcon className="w-4 h-4 text-warning-500" />
+                <span className="text-xs text-neutral-600">Lot Lines</span>
+              </div>
+              <button
+                onClick={() => lotLineInputRef.current?.click()}
+                disabled={uploading === 'lot_line'}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-warning-50 text-warning-600 text-[10px] font-semibold"
+              >
+                <ArrowUpTrayIcon className="w-3 h-3" />
+                {uploading === 'lot_line' ? 'Uploading...' : 'Upload'}
+              </button>
+              <input
+                ref={lotLineInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files, 'lot_line')}
+              />
+            </div>
+            {lotLineFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {lotLineFiles.map((f, i) => (
+                  <span
+                    key={i}
+                    className="px-1.5 py-0.5 bg-warning-50 text-warning-700 text-[10px] font-medium rounded flex items-center gap-1"
+                  >
+                    {f.name}
+                    <button
+                      onClick={() =>
+                        setLotLineFiles((prev) => prev.filter((_, j) => j !== i))
+                      }
+                    >
+                      <XMarkIcon className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Global Notes */}

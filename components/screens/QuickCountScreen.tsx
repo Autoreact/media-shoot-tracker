@@ -8,6 +8,12 @@ import {
   MinusIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import {
+  hapticIncrement,
+  hapticDecrement,
+  hapticRoomDone,
+  hapticRoomUndone,
+} from '@/lib/utils/haptics';
 
 interface Props {
   shoot: ShootState;
@@ -86,7 +92,10 @@ export default function QuickCountScreen({
 
         {/* + Button — full width, 80px tall */}
         <button
-          onClick={shootHook.incrementQuickCount}
+          onClick={() => {
+            shootHook.incrementQuickCount();
+            hapticIncrement();
+          }}
           className="w-full h-20 rounded-2xl bg-primary-500 flex items-center justify-center active:bg-primary-600 transition-colors mb-3"
         >
           <PlusIcon className="w-10 h-10 text-white" strokeWidth={2.5} />
@@ -94,7 +103,10 @@ export default function QuickCountScreen({
 
         {/* - Button — centered, smaller */}
         <button
-          onClick={shootHook.decrementQuickCount}
+          onClick={() => {
+            shootHook.decrementQuickCount();
+            hapticDecrement();
+          }}
           className="w-32 h-12 rounded-xl bg-neutral-200 flex items-center justify-center active:bg-neutral-300 transition-colors mx-auto mb-6"
         >
           <MinusIcon className="w-6 h-6 text-neutral-600" />
@@ -147,7 +159,11 @@ export default function QuickCountScreen({
             {enabledRooms.map((room) => (
               <button
                 key={room.id}
-                onClick={() => shootHook.toggleRoomChipDone(room.id)}
+                onClick={() => {
+                  const wasDone = room.completed;
+                  shootHook.toggleRoomChipDone(room.id);
+                  wasDone ? hapticRoomUndone() : hapticRoomDone();
+                }}
                 className={`chip px-3 py-1.5 rounded-lg border text-xs font-medium ${
                   room.completed ? 'done' : ''
                 }`}
