@@ -11,7 +11,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Missing orderNumber' }, { status: 400 });
     }
 
-    const folderName = `${orderNumber} - ${agentName || 'Unknown'} - ${address || 'No Address'}`;
+    // Sanitize folder name (remove chars Dropbox doesn't allow)
+    const sanitize = (s: string): string =>
+      s.replace(/[<>:"|?*\\]/g, '').replace(/\s+/g, ' ').trim();
+
+    const folderName = `${orderNumber} - ${sanitize(agentName || 'Unknown')} - ${sanitize(address || 'No Address')}`;
     const folderPath = `/AutoHDR/${folderName}/01-RAW-Photos`;
 
     // Check if folder already exists in Supabase (dedup by order number)
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Create folder via Dropbox API
+    // create_folder_v2 automatically creates parent folders (AutoHDR, order folder, etc.)
     const res = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
       method: 'POST',
       headers: {
@@ -75,10 +80,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Handle expired/invalid token specifically
+    if (res.status === 401) {
+      console.error('[Dropbox] Token expired or invalid — needs refresh');
+      return NextResponse.json(
+        { error: 'Dropbox token expired', needsRefresh: true, path: folderPath },
+        { status: 401 }
+      );
+    }
+
     const errText = await res.text();
-    console.error('[Dropbox] Create folder error:', errText);
+    console.error('[Dropbox] Create folder error:', res.status, errText);
     return NextResponse.json(
-      { error: 'Dropbox folder creation failed' },
+      { error: 'Dropbox folder creation failed', path: folderPath },
       { status: 500 }
     );
   } catch (error) {

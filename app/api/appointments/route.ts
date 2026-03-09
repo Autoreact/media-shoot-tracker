@@ -14,32 +14,41 @@ function mapPhotographer(firstName?: string): PhotographerId | null {
   return null;
 }
 
-/** Parse Aryeo custom_fields for beds/baths/sqft */
-function parseCustomFields(customFields: Record<string, unknown>[] | undefined): {
-  beds: number;
-  baths: number;
-  sqft: number;
-  furnished: boolean;
-  notes: string;
-} {
-  const result = { beds: 0, baths: 0, sqft: 0, furnished: false, notes: '' };
-
-  if (!customFields || !Array.isArray(customFields)) return result;
-
-  // Look for step-3 data (property details)
-  for (const field of customFields) {
-    const label = String(field.label || '').toLowerCase();
-    const value = String(field.value || '');
-
-    if (label.includes('bed')) result.beds = parseInt(value) || 0;
-    if (label.includes('bath')) result.baths = parseInt(value) || 0;
-    if (label.includes('sqft') || label.includes('sq ft') || label.includes('square'))
-      result.sqft = parseInt(value.replace(/,/g, '')) || 0;
-    if (label.includes('furnish')) result.furnished = value.toLowerCase() !== 'vacant';
-    if (label.includes('note')) result.notes = value;
+/** Try to extract sqft range from item subtitles (e.g. "Economy Photos+ Standard (2,000 to 2,999 SQFT)") */
+function parseSqftFromItems(items: { subtitle?: string; sub_title?: string }[]): number {
+  for (const item of items) {
+    const text = item.subtitle || item.sub_title || '';
+    // Match patterns like "(2,000 to 2,999 SQFT)" or "(Up to 2,999 SQFT)"
+    const rangeMatch = text.match(/(\d[\d,]*)\s*to\s*(\d[\d,]*)\s*SQFT/i);
+    if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
+      const low = parseInt(rangeMatch[1].replace(/,/g, ''));
+      const high = parseInt(rangeMatch[2].replace(/,/g, ''));
+      return Math.round((low + high) / 2);
+    }
+    const upToMatch = text.match(/Up to\s*(\d[\d,]*)\s*SQFT/i);
+    if (upToMatch && upToMatch[1]) {
+      return parseInt(upToMatch[1].replace(/,/g, ''));
+    }
+    const singleMatch = text.match(/(\d[\d,]*)\s*SQFT/i);
+    if (singleMatch && singleMatch[1]) {
+      return parseInt(singleMatch[1].replace(/,/g, ''));
+    }
   }
+  return 0;
+}
 
-  return result;
+/** Infer bed/bath count from item titles when listing.building has no data */
+function inferBedsFromServiceTitle(items: { title?: string; subtitle?: string; sub_title?: string }[]): { beds: number; baths: number } {
+  // Some order forms encode property size in the service tier name
+  for (const item of items) {
+    const title = (item.title || '').toLowerCase();
+    // Look for patterns like "4/3" or "5 bed 3 bath" in titles
+    const slashMatch = title.match(/(\d+)\s*\/\s*(\d+)/);
+    if (slashMatch && slashMatch[1] && slashMatch[2]) {
+      return { beds: parseInt(slashMatch[1]), baths: parseInt(slashMatch[2]) };
+    }
+  }
+  return { beds: 0, baths: 0 };
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -55,11 +64,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     // Fetch from Aryeo API
-    const startOfDay = `${dateStr}T00:00:00Z`;
-    const endOfDay = `${dateStr}T23:59:59Z`;
-
+    // Valid includes: items, appointments, appointments.users, customer, listing, payments
+    // Note: 'address' is NOT a valid include — address data is always on the order object
     const res = await fetch(
-      `${ARYEO_BASE_URL}/orders?include=items,appointments,customer,address,payments&filter[appointment_start_gte]=${startOfDay}&filter[appointment_start_lte]=${endOfDay}`,
+      `${ARYEO_BASE_URL}/orders?include=items,appointments,appointments.users,customer,listing,payments&per_page=100`,
       {
         headers: {
           Authorization: `Bearer ${ARYEO_API_KEY}`,
@@ -70,7 +78,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
 
     if (!res.ok) {
-      console.error('Aryeo API error:', res.status);
+      const errText = await res.text();
+      console.error('Aryeo API error:', res.status, errText);
       return NextResponse.json({
         appointments: getMockAppointments(dateStr),
       });
@@ -79,16 +88,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const data = await res.json();
     const orders = data.data || [];
 
-    const appointments: AryeoAppointment[] = orders.map(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (order: any): AryeoAppointment => {
-        const address = order.address?.unparsed_address || '';
-        const city = order.address?.city || '';
-        const state = order.address?.state || 'FL';
-        const zip = order.address?.postal_code || '';
+    // Filter and map orders to appointments
+    const startOfDay = new Date(`${dateStr}T00:00:00`);
+    const endOfDay = new Date(`${dateStr}T23:59:59`);
 
-        const appointment = order.appointments?.[0] || {};
-        const startAt = appointment.start_at || order.created_at;
+    const appointments: AryeoAppointment[] = orders
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((order: any): AryeoAppointment | null => {
+        // Skip orders with no address
+        const orderAddress = order.address;
+        if (!orderAddress) return null;
+
+        const address = orderAddress.unparsed_address_part_one || orderAddress.unparsed_address || '';
+        const city = orderAddress.city || '';
+        const state = orderAddress.state_or_province || 'FL';
+        const zip = orderAddress.postal_code || '';
+
+        // Get the first appointment
+        const appointment = (order.appointments || [])[0];
+        if (!appointment) return null;
+
+        const startAt = appointment.start_at;
+        if (!startAt) return null;
+
+        // Filter by date — only show appointments for the requested day
+        const aptDate = new Date(startAt);
+        if (aptDate < startOfDay || aptDate > endOfDay) return null;
 
         // Get photographers from appointment users
         const shooterIds: PhotographerId[] = (appointment.users || [])
@@ -96,40 +121,108 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           .map((u: any) => mapPhotographer(u.first_name))
           .filter(Boolean) as PhotographerId[];
 
+        // Customer (agent) info
         const customer = order.customer || {};
+        const customerOwner = customer.owner || customer;
+        const agentName = customerOwner.full_name || customer.name || '';
+        const agentPhone = customerOwner.phone || customer.phone || '';
+        const agentEmail = customerOwner.email || customer.email || '';
+
+        // Brokerage from customer_team_membership
         const brokerage =
           order.customer_team_membership?.customer_team?.name || '';
 
-        // Parse custom fields for property details
-        const customData = parseCustomFields(order.custom_fields);
+        // Property data from listing.building
+        const building = order.listing?.building || {};
+        let beds = building.bedrooms || building.bedrooms_number || 0;
+        let baths = building.bathrooms || 0;
+        let sqft = building.square_feet || 0;
 
-        // Get ordered services
+        // Fallback: try custom_fields if building data is empty
+        if (order.custom_fields && Array.isArray(order.custom_fields)) {
+          for (const field of order.custom_fields) {
+            const label = String(field.label || '').toLowerCase();
+            const value = String(field.value || '');
+            if (beds === 0 && label.includes('bed')) beds = parseInt(value) || 0;
+            if (baths === 0 && label.includes('bath')) baths = parseInt(value) || 0;
+            if (sqft === 0 && (label.includes('sqft') || label.includes('sq ft') || label.includes('square')))
+              sqft = parseInt(value.replace(/,/g, '')) || 0;
+          }
+        }
+
+        // Fallback: infer sqft from item subtitles
+        const items = order.items || [];
+        if (sqft === 0) {
+          sqft = parseSqftFromItems(items);
+        }
+
+        // Fallback: infer beds/baths from item titles
+        if (beds === 0 && baths === 0) {
+          const inferred = inferBedsFromServiceTitle(items);
+          beds = inferred.beds;
+          baths = inferred.baths;
+        }
+
+        // Furnished detection from custom_fields
+        let furnished = true; // Default to furnished
+        let notes = '';
+        if (order.custom_fields && Array.isArray(order.custom_fields)) {
+          for (const field of order.custom_fields) {
+            const label = String(field.label || '').toLowerCase();
+            const value = String(field.value || '');
+            if (label.includes('furnish')) furnished = value.toLowerCase() !== 'vacant';
+            if (label.includes('note')) notes = value;
+          }
+        }
+
+        // Get ordered services (clean titles)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const services = (order.items || []).map((item: any) => item.title || 'Service');
+        const services: string[] = items.map((item: any) => {
+          const title = item.title || 'Service';
+          // Clean up common prefixes
+          return title
+            .replace(/^Economy\s+/i, '')
+            .replace(/\s*\(Standard\)\s*/i, '')
+            .replace(/\s*\(Premium\)\s*/i, ' (Premium)')
+            .trim();
+        });
+
+        // Map order status to our status type
+        let status: 'CONFIRMED' | 'CANCELLED' | 'RESCHEDULED' = 'CONFIRMED';
+        if (order.status === 'CANCELLED' || order.status === 'CANCELED') {
+          status = 'CANCELLED';
+        } else if (appointment.status === 'RESCHEDULED') {
+          status = 'RESCHEDULED';
+        }
 
         return {
           id: order.id || String(order.number),
           orderNumber: String(order.number),
-          status: order.status?.toUpperCase() || 'CONFIRMED',
+          status,
           address,
           city,
           state,
           zip,
           startAt,
-          agentName: customer.name || '',
-          agentPhone: customer.phone || '',
-          agentEmail: customer.email || '',
+          endAt: appointment.end_at || undefined,
+          agentName,
+          agentPhone,
+          agentEmail,
           brokerage,
           services,
-          beds: customData.beds,
-          baths: customData.baths,
-          sqft: customData.sqft,
-          furnished: customData.furnished,
+          beds,
+          baths,
+          sqft,
+          furnished,
           shooterIds: shooterIds.length > 0 ? shooterIds : ['nick'],
-          notes: customData.notes,
+          shooterName: (appointment.users || [])[0]?.first_name,
+          notes: notes || undefined,
         };
-      }
-    );
+      })
+      .filter(Boolean) as AryeoAppointment[];
+
+    // Sort by appointment time
+    appointments.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 
     return NextResponse.json({ appointments });
   } catch (error) {
