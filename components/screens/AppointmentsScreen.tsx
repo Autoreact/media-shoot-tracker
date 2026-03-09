@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AryeoAppointment, PhotographerId, PHOTOGRAPHERS } from '@/types';
 import {
   ChevronLeftIcon,
@@ -9,6 +9,8 @@ import {
   ChatBubbleLeftIcon,
   Cog6ToothIcon,
   ChartBarIcon,
+  XMarkIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -61,6 +63,7 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   const [loading, setLoading] = useState(true);
   const [shooterFilter, setShooterFilter] = useState<PhotographerId | 'all'>('all');
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
 
   const fetchAppointments = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -259,35 +262,24 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
 
         {/* Manual Entry */}
         <button
-          onClick={() => {
-            const manual: AryeoAppointment = {
-              id: `manual-${Date.now()}`,
-              orderNumber: `M-${Date.now()}`,
-              status: 'CONFIRMED',
-              address: '',
-              city: 'Tallahassee',
-              state: 'FL',
-              zip: '',
-              startAt: new Date().toISOString(),
-              agentName: '',
-              agentPhone: '',
-              agentEmail: '',
-              brokerage: '',
-              services: ['Photos'],
-              beds: 3,
-              baths: 2,
-              sqft: 0,
-              furnished: false,
-              shooterIds: ['nick'],
-              notes: '',
-            };
-            onSelectAppointment(manual);
-          }}
-          className="w-full p-4 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-500 dark:text-neutral-400 text-sm font-medium hover:border-primary-400 hover:text-primary-600 transition-colors"
+          onClick={() => setShowManualEntry(true)}
+          className="w-full p-4 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-500 dark:text-neutral-400 text-sm font-medium hover:border-primary-400 hover:text-primary-600 transition-colors flex items-center justify-center gap-2"
         >
-          + Manual Entry
+          <PlusIcon className="w-4 h-4" />
+          Manual Entry
         </button>
       </div>
+
+      {/* Manual Entry Modal */}
+      {showManualEntry && (
+        <ManualEntryModal
+          onSubmit={(apt) => {
+            setShowManualEntry(false);
+            onSelectAppointment(apt);
+          }}
+          onClose={() => setShowManualEntry(false)}
+        />
+      )}
     </div>
   );
 }
@@ -451,5 +443,235 @@ function AppointmentCard({
         </div>
       </div>
     </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// Manual Entry Modal
+// ═══════════════════════════════════════════════════════════
+
+function ManualEntryModal({
+  onSubmit,
+  onClose,
+}: {
+  onSubmit: (apt: AryeoAppointment) => void;
+  onClose: () => void;
+}): React.ReactElement {
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('Tallahassee');
+  const [beds, setBeds] = useState('3');
+  const [baths, setBaths] = useState('2');
+  const [sqft, setSqft] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [agentPhone, setAgentPhone] = useState('');
+  const [furnished, setFurnished] = useState(true);
+  const [services, setServices] = useState<string[]>(['Photos']);
+  const addressRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    addressRef.current?.focus();
+  }, []);
+
+  const serviceOptions = ['Photos', 'Drone', '3D Tour', 'Floor Plans', 'Video'];
+
+  const toggleService = (s: string): void => {
+    setServices((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    );
+  };
+
+  const handleSubmit = (): void => {
+    if (!address.trim()) return;
+
+    const apt: AryeoAppointment = {
+      id: `manual-${Date.now()}`,
+      orderNumber: `M-${Date.now()}`,
+      status: 'CONFIRMED',
+      address: address.trim(),
+      city: city.trim() || 'Tallahassee',
+      state: 'FL',
+      zip: '',
+      startAt: new Date().toISOString(),
+      agentName: agentName.trim(),
+      agentPhone: agentPhone.trim(),
+      agentEmail: '',
+      brokerage: '',
+      services,
+      beds: parseInt(beds) || 0,
+      baths: parseInt(baths) || 0,
+      sqft: parseInt(sqft) || 0,
+      furnished,
+      shooterIds: ['nick'],
+      notes: '',
+    };
+    onSubmit(apt);
+  };
+
+  const inputCls =
+    'w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-950 dark:text-white text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 placeholder:text-neutral-400';
+  const labelCls =
+    'text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1 block';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-t-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pb-3">
+          <h3 className="text-lg font-bold text-neutral-950 dark:text-white">
+            Manual Entry
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+          >
+            <XMarkIcon className="w-4 h-4 text-neutral-500" />
+          </button>
+        </div>
+
+        <div className="px-4 pb-6 space-y-4">
+          {/* Address (required) */}
+          <div>
+            <label className={labelCls}>Address *</label>
+            <input
+              ref={addressRef}
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main St"
+              className={inputCls}
+            />
+          </div>
+
+          {/* City */}
+          <div>
+            <label className={labelCls}>City</label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Tallahassee"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Beds / Baths / Sqft row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={labelCls}>Beds</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={beds}
+                onChange={(e) => setBeds(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Baths</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={baths}
+                onChange={(e) => setBaths(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Sqft</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={sqft}
+                onChange={(e) => setSqft(e.target.value)}
+                placeholder="2000"
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          {/* Furnished toggle */}
+          <div className="flex items-center justify-between">
+            <span className={labelCls}>Furnished</span>
+            <button
+              onClick={() => setFurnished(!furnished)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                furnished ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  furnished ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Services */}
+          <div>
+            <label className={labelCls}>Services</label>
+            <div className="flex flex-wrap gap-2">
+              {serviceOptions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => toggleService(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    services.includes(s)
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent info */}
+          <div>
+            <label className={labelCls}>Agent Name</label>
+            <input
+              type="text"
+              value={agentName}
+              onChange={(e) => setAgentName(e.target.value)}
+              placeholder="Optional"
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Agent Phone</label>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={agentPhone}
+              onChange={(e) => setAgentPhone(e.target.value)}
+              placeholder="Optional"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={!address.trim()}
+            className="w-full py-3.5 rounded-xl bg-primary-500 text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary-600 transition-colors"
+          >
+            Continue to Tier Selection
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

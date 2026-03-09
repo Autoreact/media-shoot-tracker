@@ -127,6 +127,11 @@ body {
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 @keyframes ring-progress {
   from { stroke-dashoffset: var(--ring-circumference); }
   to { stroke-dashoffset: var(--ring-offset); }
@@ -142,6 +147,10 @@ body {
 
 .animate-blink {
   animation: pulse-blink 1.5s infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }
 
 /* ═══════════════════════════════════════════════════════════ */

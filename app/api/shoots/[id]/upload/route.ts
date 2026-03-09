@@ -21,6 +21,13 @@ export async function POST(
 
     const supabase = createServiceClient();
 
+    // Look up the session UUID from aryeo_order_number
+    const { data: session } = await supabase
+      .from('shoot_sessions')
+      .select('id')
+      .eq('aryeo_order_number', shootId)
+      .single();
+
     // Upload to Supabase Storage
     const ext = file.name.split('.').pop() || 'jpg';
     const storagePath = `shoots/${shootId}/${type}/${Date.now()}.${ext}`;
@@ -46,24 +53,26 @@ export async function POST(
       .from('shoot-attachments')
       .getPublicUrl(storagePath);
 
-    // Insert attachment record
-    const { error: dbError } = await supabase
-      .from('shoot_attachments')
-      .insert({
-        shoot_session_id: shootId,
-        type,
-        storage_path: storagePath,
-        metadata: {
-          original_name: file.name,
-          size: file.size,
-          content_type: file.type,
-          public_url: urlData.publicUrl,
-        },
-      });
+    // Insert attachment record (matching actual table schema)
+    if (session?.id) {
+      const { error: dbError } = await supabase
+        .from('shoot_attachments')
+        .insert({
+          session_id: session.id,
+          type,
+          file_name: file.name,
+          storage_path: storagePath,
+          file_size: file.size,
+          mime_type: file.type,
+          metadata: {
+            public_url: urlData.publicUrl,
+          },
+        });
 
-    if (dbError) {
-      console.error('DB insert error:', dbError);
-      // File uploaded but DB record failed — still return success with path
+      if (dbError) {
+        console.error('DB insert error:', dbError);
+        // File uploaded but DB record failed — still return success with path
+      }
     }
 
     return NextResponse.json({
