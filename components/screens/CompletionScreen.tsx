@@ -127,9 +127,9 @@ export default function CompletionScreen({
     setUploading(null);
   };
 
-  // Build Dropbox URL — use /work/ path for Dropbox Business team folders
+  // Build Dropbox URL — /home/ path with encoded folder path
   const dropboxPath = shoot.dropboxFolderPath.replace(/\/$/, '');
-  const dropboxSearchUrl = `https://www.dropbox.com/work/${dropboxPath}`;
+  const dropboxUrl = `https://www.dropbox.com/home/${dropboxPath.split('/').map(encodeURIComponent).join('/')}`;
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in relative">
@@ -274,7 +274,7 @@ export default function CompletionScreen({
 
         {/* Dropbox Folder — clickable link */}
         <a
-          href={dropboxSearchUrl}
+          href={dropboxUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="block bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 hover:border-primary-300 dark:hover:border-primary-600 transition-colors"
