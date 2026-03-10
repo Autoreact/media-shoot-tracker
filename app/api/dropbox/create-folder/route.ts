@@ -1,7 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 
-const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+let cachedAccessToken = process.env.DROPBOX_ACCESS_TOKEN || '';
+const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN;
+const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY;
+const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET;
+
+/** Refresh the Dropbox access token using the refresh token */
+async function refreshAccessToken(): Promise<string | null> {
+  if (!DROPBOX_REFRESH_TOKEN || !DROPBOX_APP_KEY || !DROPBOX_APP_SECRET) {
+    console.error('[Dropbox] Missing refresh token or app credentials');
+    return null;
+  }
+
+  const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: DROPBOX_REFRESH_TOKEN,
+      client_id: DROPBOX_APP_KEY,
+      client_secret: DROPBOX_APP_SECRET,
+    }),
+  });
+
+  if (!res.ok) {
+    console.error('[Dropbox] Token refresh failed:', res.status, await res.text());
+    return null;
+  }
+
+  const data = await res.json();
+  cachedAccessToken = data.access_token;
+  console.log('[Dropbox] Token refreshed successfully');
+  return cachedAccessToken;
+}
+
+/** Create a Dropbox folder, auto-refreshing the token on 401 */
+async function createFolder(folderPath: string): Promise<{ ok: boolean; status: number; existed?: boolean }> {
+  const attempt = async (token: string): Promise<Response> =>
+    fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: folderPath, autorename: false }),
+    });
+
+  let res = await attempt(cachedAccessToken);
+
+  // Auto-refresh on 401
+  if (res.status === 401) {
+    console.log('[Dropbox] Token expired, refreshing...');
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await attempt(newToken);
+    } else {
+      return { ok: false, status: 401 };
+    }
+  }
+
+  if (res.ok) return { ok: true, status: 200 };
+  if (res.status === 409) return { ok: true, status: 409, existed: true };
+
+  const errText = await res.text();
+  console.error('[Dropbox] Create folder error:', res.status, errText);
+  return { ok: false, status: res.status };
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -34,39 +99,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // If no Dropbox token, log and return mock
-    if (!DROPBOX_ACCESS_TOKEN) {
+    // If no tokens at all, log and return mock
+    if (!cachedAccessToken && !DROPBOX_REFRESH_TOKEN) {
       console.log('[Dropbox] No token — would create:', folderPath);
-
-      // Still mark as created in Supabase
-      await supabase
-        .from('shoot_sessions')
-        .update({ dropbox_folder_created: true })
-        .eq('aryeo_order_number', orderNumber);
-
-      return NextResponse.json({
-        success: true,
-        mock: true,
-        path: folderPath,
-      });
+      return NextResponse.json({ success: true, mock: true, path: folderPath });
     }
 
-    // Create folder via Dropbox API
-    // create_folder_v2 automatically creates parent folders (AutoHDR, order folder, etc.)
-    const res = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${DROPBOX_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        path: folderPath,
-        autorename: false,
-      }),
-    });
+    // If access token is empty but we have refresh token, get a fresh one
+    if (!cachedAccessToken && DROPBOX_REFRESH_TOKEN) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        return NextResponse.json(
+          { error: 'Could not refresh Dropbox token', path: folderPath },
+          { status: 401 }
+        );
+      }
+    }
 
-    if (res.ok || res.status === 409) {
-      // 409 = folder already exists, which is fine
+    const result = await createFolder(folderPath);
+
+    if (result.ok) {
       // Mark as created in Supabase
       await supabase
         .from('shoot_sessions')
@@ -76,24 +128,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({
         success: true,
         path: folderPath,
-        existed: res.status === 409,
+        existed: result.existed,
       });
     }
 
-    // Handle expired/invalid token specifically
-    if (res.status === 401) {
-      console.error('[Dropbox] Token expired or invalid — needs refresh');
-      return NextResponse.json(
-        { error: 'Dropbox token expired', needsRefresh: true, path: folderPath },
-        { status: 401 }
-      );
-    }
-
-    const errText = await res.text();
-    console.error('[Dropbox] Create folder error:', res.status, errText);
     return NextResponse.json(
       { error: 'Dropbox folder creation failed', path: folderPath },
-      { status: 500 }
+      { status: result.status }
     );
   } catch (error) {
     console.error('[Dropbox] Error:', error);
