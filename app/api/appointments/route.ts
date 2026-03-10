@@ -86,7 +86,10 @@ function parseServiceName(title: string): string {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
-  const dateStr: string = searchParams.get('date') || new Date().toISOString().split('T')[0]!;
+  // Default to today in Eastern timezone (not UTC) to match client behavior
+  const now = new Date();
+  const defaultDate = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const dateStr: string = searchParams.get('date') || defaultDate;
 
   // If no API key, return mock data for development
   if (!ARYEO_API_KEY) {
@@ -121,9 +124,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const data = await res.json();
     const orders = data.data || [];
 
-    // Filter and map orders to appointments
-    const startOfDay = new Date(`${dateStr}T00:00:00`);
-    const endOfDay = new Date(`${dateStr}T23:59:59`);
+    // We compare dates using Eastern timezone strings to avoid DST/UTC mismatches
+    // This ensures a 1:30 PM EDT appointment always appears on the correct local date
 
     const appointments: AryeoAppointment[] = orders
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,9 +146,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const startAt = appointment.start_at;
         if (!startAt) return null;
 
-        // Filter by date — only show appointments for the requested day
-        const aptDate = new Date(startAt);
-        if (aptDate < startOfDay || aptDate > endOfDay) return null;
+        // Filter by date — compare in Eastern timezone to avoid DST/UTC mismatches
+        // en-CA locale gives YYYY-MM-DD format which matches our dateStr
+        const aptDateEastern = new Date(startAt).toLocaleDateString('en-CA', {
+          timeZone: 'America/New_York',
+        });
+        if (aptDateEastern !== dateStr) return null;
 
         // Get photographers from appointment users
         const shooterIds: PhotographerId[] = (appointment.users || [])

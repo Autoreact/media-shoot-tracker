@@ -127,8 +127,9 @@ export default function CompletionScreen({
     setUploading(null);
   };
 
-  // Build Dropbox URL — the folder may not be web-accessible, but we can construct a search URL
-  const dropboxSearchUrl = `https://www.dropbox.com/home/${encodeURIComponent(shoot.dropboxFolderPath.replace(/\/$/, ''))}`;
+  // Build Dropbox URL — use search to find the folder (works for both personal and team Dropbox)
+  const folderName = shoot.dropboxFolderPath.split('/').filter(Boolean).slice(0, -1).join('/');
+  const dropboxSearchUrl = `https://www.dropbox.com/search/personal?query=${encodeURIComponent(shoot.aryeoOrderNumber + ' ' + shoot.address)}`;
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in relative">
@@ -295,16 +296,16 @@ export default function CompletionScreen({
           <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">Attachments</p>
 
           {/* Drone Photos */}
-          <div className="mb-4">
+          <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CameraIcon className="w-5 h-5 text-primary-500" />
-                <span className="text-sm text-neutral-600 dark:text-neutral-300">Drone Photos</span>
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Drone Photos</span>
               </div>
               <button
                 onClick={() => droneInputRef.current?.click()}
                 disabled={uploading === 'drone'}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-xs font-semibold"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-sm font-semibold"
               >
                 <ArrowUpTrayIcon className="w-4 h-4" />
                 {uploading === 'drone' ? 'Uploading...' : 'Upload'}
@@ -344,12 +345,12 @@ export default function CompletionScreen({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <MapIcon className="w-5 h-5 text-warning-500" />
-                <span className="text-sm text-neutral-600 dark:text-neutral-300">Lot Lines</span>
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Lot Lines</span>
               </div>
               <button
                 onClick={() => lotLineInputRef.current?.click()}
                 disabled={uploading === 'lot_line'}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-warning-50 dark:bg-warning-900/30 text-warning-600 dark:text-warning-400 text-xs font-semibold"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-warning-50 dark:bg-warning-900/30 text-warning-600 dark:text-warning-400 text-sm font-semibold"
               >
                 <ArrowUpTrayIcon className="w-4 h-4" />
                 {uploading === 'lot_line' ? 'Uploading...' : 'Upload'}

@@ -68,7 +68,11 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   const fetchAppointments = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      // Use local date (not UTC) to avoid timezone/DST off-by-one
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       const res = await fetch(`/api/appointments?date=${dateStr}`);
       if (res.ok) {
         const data = await res.json();

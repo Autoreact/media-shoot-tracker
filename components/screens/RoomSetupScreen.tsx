@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ShootRoom, PropertyTier, RoomCategory, CATEGORY_LABELS } from '@/types';
 import { QUICK_ADD_ROOMS } from '@/lib/data/quick-add-rooms';
 import { ChevronLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
@@ -31,6 +31,10 @@ export default function RoomSetupScreen({
   onUpdateRooms,
 }: Props): React.ReactElement {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customRoomName, setCustomRoomName] = useState('');
+  const [customRoomCategory, setCustomRoomCategory] = useState<RoomCategory>('misc');
+  const customInputRef = useRef<HTMLInputElement>(null);
 
   const toggleRoom = (roomId: string): void => {
     onUpdateRooms(
@@ -61,6 +65,30 @@ export default function RoomSetupScreen({
     };
 
     onUpdateRooms([...rooms, newRoom]);
+  };
+
+  const addCustomRoom = (): void => {
+    if (!customRoomName.trim()) return;
+
+    const newRoom: ShootRoom = {
+      id: nanoid(),
+      templateId: `custom-${Date.now()}`,
+      name: customRoomName.trim(),
+      category: customRoomCategory,
+      expectedShots: 3,
+      actualShots: 0,
+      orientation: 'H',
+      completed: false,
+      skipped: false,
+      notes: '',
+      sortOrder: rooms.length,
+      isCustom: true,
+      enabled: true,
+    };
+
+    onUpdateRooms([...rooms, newRoom]);
+    setCustomRoomName('');
+    setShowCustomInput(false);
   };
 
   const enabledCount = rooms.filter((r) => r.enabled).length;
@@ -150,18 +178,78 @@ export default function RoomSetupScreen({
             Quick Add Rooms
           </button>
           {showQuickAdd && (
-            <div className="flex flex-wrap gap-2">
-              {QUICK_ADD_ROOMS.filter(
-                (qa) => !rooms.find((r) => r.templateId === qa.id)
-              ).map((qa) => (
+            <div className="space-y-3">
+              {/* Preset rooms */}
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ADD_ROOMS.filter(
+                  (qa) => !rooms.find((r) => r.templateId === qa.id)
+                ).map((qa) => (
+                  <button
+                    key={qa.id}
+                    onClick={() => addQuickAddRoom(qa)}
+                    className="px-3 py-1.5 bg-white dark:bg-neutral-800 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                  >
+                    + {qa.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Room Input */}
+              {showCustomInput ? (
+                <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl border border-primary-300 dark:border-primary-600">
+                  <input
+                    ref={customInputRef}
+                    type="text"
+                    value={customRoomName}
+                    onChange={(e) => setCustomRoomName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addCustomRoom(); }}
+                    placeholder="Room name..."
+                    autoFocus
+                    className="w-full text-sm font-medium text-neutral-950 dark:text-white bg-transparent focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 mb-2"
+                  />
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider">Category:</span>
+                    <div className="flex gap-1">
+                      {CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setCustomRoomCategory(cat)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                            customRoomCategory === cat
+                              ? 'bg-primary-500 text-white'
+                              : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'
+                          }`}
+                        >
+                          {CATEGORY_LABELS[cat]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addCustomRoom}
+                      disabled={!customRoomName.trim()}
+                      className="flex-1 py-2 rounded-lg bg-primary-500 text-white text-sm font-semibold disabled:opacity-40"
+                    >
+                      Add Room
+                    </button>
+                    <button
+                      onClick={() => { setShowCustomInput(false); setCustomRoomName(''); }}
+                      className="px-4 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button
-                  key={qa.id}
-                  onClick={() => addQuickAddRoom(qa)}
-                  className="px-3 py-1.5 bg-white dark:bg-neutral-800 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                  onClick={() => setShowCustomInput(true)}
+                  className="w-full p-3 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-500 dark:text-neutral-400 text-sm font-medium hover:border-primary-400 hover:text-primary-600 transition-colors flex items-center justify-center gap-2"
                 >
-                  + {qa.name}
+                  <PlusIcon className="w-4 h-4" />
+                  Add Custom Room
                 </button>
-              ))}
+              )}
             </div>
           )}
         </div>
