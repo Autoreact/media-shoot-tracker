@@ -96,83 +96,43 @@ export default function QuickCountScreen({
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col items-center pb-32">
-        {/* Counter + Progress Ring side by side */}
-        <div className="flex items-center justify-center gap-6 mb-6 w-full">
-          {/* Counter section */}
-          <div className="flex flex-col items-center">
-            <div className="text-[72px] font-black text-neutral-950 dark:text-white leading-none tabular-nums">
-              {shoot.quickCountTotal}
-            </div>
-
-            {/* Editable target */}
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-sm text-neutral-400">of</span>
-              {editingTarget ? (
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={targetInput}
-                  onChange={(e) => setTargetInput(e.target.value)}
-                  onBlur={handleTargetSave}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleTargetSave(); }}
-                  autoFocus
-                  className="w-16 text-center text-sm font-bold text-neutral-950 dark:text-white bg-neutral-100 dark:bg-neutral-800 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                />
-              ) : (
-                <button
-                  onClick={() => {
-                    setTargetInput(String(shoot.target));
-                    setEditingTarget(true);
-                  }}
-                  className="flex items-center gap-1 text-sm font-bold text-neutral-600 dark:text-neutral-300 hover:text-primary-500 transition-colors"
-                >
-                  {shoot.target}
-                  <PencilIcon className="w-3 h-3 text-neutral-400" />
-                </button>
-              )}
-            </div>
+        {/* Shot Counter — big and prominent */}
+        <div className="flex flex-col items-center mb-4">
+          <div className="text-[88px] font-black text-neutral-950 dark:text-white leading-none tabular-nums">
+            {shoot.quickCountTotal}
           </div>
 
-          {/* Progress Ring */}
-          <div className="relative">
-            <svg
-              width={ringSize}
-              height={ringSize}
-              viewBox={`0 0 ${ringSize} ${ringSize}`}
-            >
-              <circle
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={radius}
-                fill="none"
-                stroke="#E3E8EF"
-                strokeWidth={strokeWidth}
-                className="dark:stroke-neutral-700"
+          {/* Editable target — bigger tap target */}
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-base text-neutral-400">of</span>
+            {editingTarget ? (
+              <input
+                type="number"
+                inputMode="numeric"
+                value={targetInput}
+                onChange={(e) => setTargetInput(e.target.value)}
+                onBlur={handleTargetSave}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleTargetSave(); }}
+                autoFocus
+                className="w-20 text-center text-lg font-bold text-neutral-950 dark:text-white bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              <circle
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={radius}
-                fill="none"
-                stroke={isTargetReached ? '#00D924' : '#635BFF'}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-                className="progress-ring"
-                transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xl font-bold text-neutral-600 dark:text-neutral-300">
-                {Math.round(progress * 100)}%
-              </span>
-            </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setTargetInput(String(shoot.target));
+                  setEditingTarget(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-bold text-neutral-600 dark:text-neutral-300 hover:text-primary-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                {shoot.target}
+                <PencilIcon className="w-4 h-4 text-neutral-400" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* + / - Buttons */}
-        <div className="w-full space-y-3 mb-8">
+        <div className="w-full space-y-3 mb-5">
           <button
             onClick={() => {
               shootHook.incrementQuickCount();
@@ -190,8 +150,45 @@ export default function QuickCountScreen({
             }}
             className="w-full h-14 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center active:bg-neutral-300 dark:active:bg-neutral-600 transition-all"
           >
-            <MinusIcon className="w-6 h-6 text-neutral-600 dark:text-neutral-300" />
+            <MinusIcon className="w-7 h-7 text-neutral-600 dark:text-neutral-300" strokeWidth={2.5} />
           </button>
+        </div>
+
+        {/* Progress Ring — below buttons */}
+        <div className="relative mb-6">
+          <svg
+            width={ringSize}
+            height={ringSize}
+            viewBox={`0 0 ${ringSize} ${ringSize}`}
+          >
+            <circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={radius}
+              fill="none"
+              stroke="#E3E8EF"
+              strokeWidth={strokeWidth}
+              className="dark:stroke-neutral-700"
+            />
+            <circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={radius}
+              fill="none"
+              stroke={isTargetReached ? '#00D924' : '#635BFF'}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              className="progress-ring"
+              transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-xl font-bold text-neutral-600 dark:text-neutral-300">
+              {Math.round(progress * 100)}%
+            </span>
+          </div>
         </div>
 
         {/* Room Chips Section */}

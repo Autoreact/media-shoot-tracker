@@ -127,9 +127,9 @@ export default function CompletionScreen({
     setUploading(null);
   };
 
-  // Build Dropbox URL — use search to find the folder (works for both personal and team Dropbox)
-  const folderName = shoot.dropboxFolderPath.split('/').filter(Boolean).slice(0, -1).join('/');
-  const dropboxSearchUrl = `https://www.dropbox.com/search/personal?query=${encodeURIComponent(shoot.aryeoOrderNumber + ' ' + shoot.address)}`;
+  // Build Dropbox URL — use /work/ path for Dropbox Business team folders
+  const dropboxPath = shoot.dropboxFolderPath.replace(/\/$/, '');
+  const dropboxSearchUrl = `https://www.dropbox.com/work/${dropboxPath}`;
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in relative">
