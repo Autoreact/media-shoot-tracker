@@ -135,6 +135,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         if (!orderAddress) return null;
 
         const address = orderAddress.unparsed_address_part_one || orderAddress.unparsed_address || '';
+        const fullAddress = orderAddress.unparsed_address || address;
         const city = orderAddress.city || '';
         const state = orderAddress.state_or_province || 'FL';
         const zip = orderAddress.postal_code || '';
@@ -232,6 +233,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           orderNumber: String(order.number),
           status,
           address,
+          fullAddress,
           city,
           state,
           zip,
@@ -273,6 +275,7 @@ function getMockAppointments(dateStr: string): AryeoAppointment[] {
       orderNumber: '2178',
       status: 'CONFIRMED',
       address: '2848 Lanier Rd',
+      fullAddress: '2848 Lanier Rd, Tallahassee, FL 32312',
       city: 'Tallahassee',
       state: 'FL',
       zip: '32312',
@@ -293,6 +296,7 @@ function getMockAppointments(dateStr: string): AryeoAppointment[] {
       orderNumber: '2179',
       status: 'CONFIRMED',
       address: '1520 Hermitage Blvd',
+      fullAddress: '1520 Hermitage Blvd, Tallahassee, FL 32308',
       city: 'Tallahassee',
       state: 'FL',
       zip: '32308',
@@ -313,6 +317,7 @@ function getMockAppointments(dateStr: string): AryeoAppointment[] {
       orderNumber: '2180',
       status: 'CANCELLED',
       address: '456 Park Ave',
+      fullAddress: '456 Park Ave, Tallahassee, FL 32301',
       city: 'Tallahassee',
       state: 'FL',
       zip: '32301',
@@ -333,6 +338,7 @@ function getMockAppointments(dateStr: string): AryeoAppointment[] {
       orderNumber: '2181',
       status: 'CONFIRMED',
       address: '7890 Thomasville Rd',
+      fullAddress: '7890 Thomasville Rd, Tallahassee, FL 32309',
       city: 'Tallahassee',
       state: 'FL',
       zip: '32309',

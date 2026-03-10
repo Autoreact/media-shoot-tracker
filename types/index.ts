@@ -109,7 +109,8 @@ export interface AryeoAppointment {
   id: string;
   orderNumber: string;
   status: 'CONFIRMED' | 'CANCELLED' | 'RESCHEDULED';
-  address: string;
+  address: string; // Street only (e.g. "4015 Harpers Ferry Dr")
+  fullAddress: string; // Full address with city/state/zip (e.g. "4015 Harpers Ferry Dr, Tallahassee, FL 32308")
   city: string;
   state: string;
   zip: string;

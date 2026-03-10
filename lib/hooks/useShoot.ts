@@ -29,8 +29,7 @@ export function useShoot() {
       rooms: ShootRoom[]
     ): ShootState => {
       const tierInfo = getTierInfo(tier);
-      const fullAddress = [appointment.address, appointment.city, `${appointment.state || 'FL'} ${appointment.zip || ''}`].filter(Boolean).join(', ').trim();
-      const dropboxFolderPath = `AutoHDR/${appointment.orderNumber} - ${appointment.agentName} - ${fullAddress}/01-RAW-Photos/`;
+      const dropboxFolderPath = `AutoHDR/${appointment.orderNumber} - ${appointment.agentName} - ${appointment.fullAddress}/01-RAW-Photos/`;
 
       const newShoot: ShootState = {
         aryeoOrderNumber: appointment.orderNumber,

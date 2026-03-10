@@ -106,14 +106,13 @@ export default function HomePage(): React.ReactElement {
 
       // Immediate sync on shoot start + trigger Dropbox folder creation
       syncNow(newShoot);
-      const fullAddress = [selectedAppointment.address, selectedAppointment.city, `${selectedAppointment.state || 'FL'} ${selectedAppointment.zip || ''}`].filter(Boolean).join(', ').trim();
       fetch('/api/dropbox/create-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber: selectedAppointment.orderNumber,
           agentName: selectedAppointment.agentName,
-          address: fullAddress,
+          address: selectedAppointment.fullAddress,
         }),
       }).catch(() => {}); // Fire and forget
 

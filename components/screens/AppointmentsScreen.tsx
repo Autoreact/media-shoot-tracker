@@ -507,6 +507,7 @@ function ManualEntryModal({
       orderNumber: `M-${Date.now()}`,
       status: 'CONFIRMED',
       address: address.trim(),
+      fullAddress: [address.trim(), city.trim() || 'Tallahassee', 'FL'].filter(Boolean).join(', '),
       city: city.trim() || 'Tallahassee',
       state: 'FL',
       zip: '',
