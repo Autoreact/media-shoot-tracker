@@ -106,15 +106,25 @@ export default function HomePage(): React.ReactElement {
 
       // Immediate sync on shoot start + trigger Dropbox folder creation
       syncNow(newShoot);
+      // Use fullAddress from Aryeo (includes city/state/zip), fallback to constructing it
+      const dropboxAddress = selectedAppointment.fullAddress
+        || [selectedAppointment.address, selectedAppointment.city, `${selectedAppointment.state || 'FL'} ${selectedAppointment.zip || ''}`].filter(Boolean).join(', ').trim();
       fetch('/api/dropbox/create-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber: selectedAppointment.orderNumber,
           agentName: selectedAppointment.agentName,
-          address: selectedAppointment.fullAddress,
+          address: dropboxAddress,
         }),
-      }).catch(() => {}); // Fire and forget
+      }).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          console.log('[Dropbox] Folder created:', data.dropboxUrl);
+        } else {
+          console.error('[Dropbox] Folder creation failed:', res.status);
+        }
+      }).catch((err) => console.error('[Dropbox] Network error:', err));
 
       setScreen(selectedMode === 'detail' ? 'room_tracker' : 'quick_count');
     },

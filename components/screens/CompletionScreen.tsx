@@ -43,6 +43,8 @@ export default function CompletionScreen({
   const [droneFiles, setDroneFiles] = useState<{ name: string; url: string }[]>([]);
   const [lotLineFiles, setLotLineFiles] = useState<{ name: string; url: string }[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [dropboxCreating, setDropboxCreating] = useState(false);
+  const [dropboxError, setDropboxError] = useState<string | null>(null);
   const droneInputRef = useRef<HTMLInputElement>(null);
   const lotLineInputRef = useRef<HTMLInputElement>(null);
 
@@ -130,6 +132,40 @@ export default function CompletionScreen({
   // Build Dropbox URL — /home/ path with encoded folder path
   const dropboxPath = shoot.dropboxFolderPath.replace(/\/$/, '');
   const dropboxUrl = `https://www.dropbox.com/home/${dropboxPath.split('/').map(encodeURIComponent).join('/')}`;
+
+  // Retry creating Dropbox folder
+  const handleCreateDropboxFolder = async (): Promise<void> => {
+    setDropboxCreating(true);
+    setDropboxError(null);
+    try {
+      // Extract address from the folder path (format: AutoHDR/{order} - {agent} - {address}/01-RAW-Photos)
+      const folderName = shoot.dropboxFolderPath.split('/')[1] || '';
+      const parts = folderName.split(' - ');
+      const orderNumber = parts[0] || shoot.aryeoOrderNumber;
+      const agentName = parts[1] || shoot.agentName;
+      // Everything after the second " - " is the address
+      const address = parts.slice(2).join(' - ') || shoot.address;
+
+      const res = await fetch('/api/dropbox/create-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber, agentName, address }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[Dropbox] Folder created:', data);
+        setDropboxError(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setDropboxError(data.error || `Failed (${res.status})`);
+      }
+    } catch {
+      setDropboxError('Network error');
+    } finally {
+      setDropboxCreating(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in relative">
@@ -272,24 +308,36 @@ export default function CompletionScreen({
           </div>
         )}
 
-        {/* Dropbox Folder — clickable link */}
-        <a
-          href={dropboxUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 hover:border-primary-300 dark:hover:border-primary-600 transition-colors"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <FolderIcon className="w-5 h-5 text-primary-500" />
-            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 flex-1">
-              Dropbox Auto HDR
-            </span>
-            <ArrowTopRightOnSquareIcon className="w-4 h-4 text-primary-500" />
-          </div>
-          <p className="text-xs text-primary-600 dark:text-primary-400 font-mono break-all underline underline-offset-2">
-            {shoot.dropboxFolderPath}
-          </p>
-        </a>
+        {/* Dropbox Folder — clickable link + retry */}
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
+          <a
+            href={dropboxUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block hover:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <FolderIcon className="w-5 h-5 text-primary-500" />
+              <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 flex-1">
+                Dropbox Auto HDR
+              </span>
+              <ArrowTopRightOnSquareIcon className="w-4 h-4 text-primary-500" />
+            </div>
+            <p className="text-xs text-primary-600 dark:text-primary-400 font-mono break-all underline underline-offset-2">
+              {shoot.dropboxFolderPath}
+            </p>
+          </a>
+          <button
+            onClick={handleCreateDropboxFolder}
+            disabled={dropboxCreating}
+            className="mt-3 w-full py-2 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 text-xs font-semibold hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+          >
+            {dropboxCreating ? 'Creating...' : 'Create Dropbox Folder'}
+          </button>
+          {dropboxError && (
+            <p className="mt-1.5 text-xs text-error-500">{dropboxError}</p>
+          )}
+        </div>
 
         {/* File Uploads — Drone + Lot Lines */}
         <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
