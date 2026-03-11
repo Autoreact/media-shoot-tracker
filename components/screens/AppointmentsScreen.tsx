@@ -19,7 +19,8 @@ interface Props {
   onReports?: () => void;
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: Date | null): string {
+  if (!date) return '';
   return date.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
