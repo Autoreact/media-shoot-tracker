@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>323 Media Shoot Tracker — V2 Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{
+primary:{50:'#F0EEFF',100:'#E0DDFF',200:'#C2BBFF',300:'#A399FF',400:'#8577FF',500:'#635BFF',600:'#5348E6',700:'#4A3FCF',800:'#3A31A3',900:'#2A2478'},
+success:{50:'#E6FFE9',100:'#B3FFB9',400:'#33E842',500:'#00D924',600:'#00B81E',700:'#009718'},
+warning:{50:'#FFF9E6',100:'#FFEDAA',400:'#FFC933',500:'#FFBB00',600:'#D99E00'},
+error:{50:'#FFF0F3',100:'#FFDBE3',400:'#EF5070',500:'#DF1B41',600:'#B81635'},
+neutral:{50:'#F6F9FC',100:'#E3E8EF',200:'#CBD2D9',300:'#9AA5B1',400:'#7B8794',500:'#616E7C',600:'#52606D',700:'#3E4C59',800:'#323F4B',900:'#1F2933',950:'#0A0A0A'},
+toggl:{pink:'#E57CD8',darkBg:'#1A1A2E',cardBg:'#2D2D44',ring:'#E57CD8'}
+}}}}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+*{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+.phone{width:390px;height:844px;overflow-y:auto;overflow-x:hidden;position:relative;scroll-behavior:smooth}
+.phone::-webkit-scrollbar{display:none}
+.scr{display:none;min-height:100%;flex-direction:column}
+.scr.on{display:flex}
+.fi{animation:fi .2s ease-out}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bump{0%{transform:scale(1.2);opacity:.7}100%{transform:scale(1);opacity:1}}
+.bump{animation:bump .12s ease-out}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.blink{animation:pulse 1.5s infinite}
+.chip{transition:all .12s}
+.chip.ok{background:#E6FFE9;border-color:#00D924;color:#009718}
+.chip:not(.ok){background:#fff;border-color:#CBD2D9;color:#616E7C}
+.pring{transition:stroke-dashoffset .3s ease}
+</style>
+</head>
+<body class="bg-neutral-50">
+<div class="flex justify-center items-center min-h-screen p-4 gap-4">
+<div class="phone border border-neutral-300 rounded-3xl shadow-2xl bg-white">
+<div class="scr on p-4 gap-3 pb-12">
+<div class="sticky top-0 z-10 bg-white pb-2">
+<div class="flex items-center justify-between mb-3">
+<h1 class="text-lg font-bold text-neutral-950">March 8</h1>
+<button class="text-primary-600 font-semibold text-sm">Today</button>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-2">
+<button class="px-3 py-1.5 rounded-full text-sm font-medium bg-primary-100 text-primary-700 whitespace-nowrap">Mar 6</button>
+<button class="px-3 py-1.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 whitespace-nowrap">Mar 7</button>
+<button class="px-3 py-1.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 whitespace-nowrap border border-primary-600 text-primary-700 font-semibold">Mar 8</button>
+<button class="px-3 py-1.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 whitespace-nowrap">Mar 9</button>
+<button class="px-3 py-1.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 whitespace-nowrap">Mar 10</button>
+</div>
+</div>
+<div class="space-y-2">
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-start justify-between mb-1.5">
+<div>
+<h3 class="font-semibold text-neutral-950 text-sm">Trinity Lutheran</h3>
+<p class="text-xs text-neutral-600">2:00 PM – 6:00 PM</p>
+</div>
+<span class="px-2 py-1 text-xs font-medium bg-success-100 text-success-700 rounded border border-success-300">4/8 shots</span>
+</div>
+<div class="flex gap-2 mt-2">
+<button class="text-xs px-2 py-1 rounded bg-neutral-100 text-neutral-700 font-medium">Filter</button>
+<button class="text-xs px-2 py-1 rounded bg-neutral-100 text-neutral-700 font-medium">Contact</button>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-start justify-between mb-1.5">
+<div>
+<h3 class="font-semibold text-neutral-950 text-sm">Lakewood Community</h3>
+<p class="text-xs text-neutral-600">4:00 PM – 5:30 PM</p>
+</div>
+<span class="px-2 py-1 text-xs font-medium bg-error-100 text-error-700 rounded border border-error-300">Cancelled</span>
+</div>
+<div class="text-xs text-neutral-600 mt-1">Rescheduled to Mar 15</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-start justify-between mb-1.5">
+<div>
+<h3 class="font-semibold text-neutral-950 text-sm">Parkside Elementary</h3>
+<p class="text-xs text-neutral-600">6:00 PM – 7:30 PM</p>
+</div>
+<span class="px-2 py-1 text-xs font-medium bg-warning-100 text-warning-700 rounded border border-warning-300">0/12 shots</span>
+</div>
+<div class="flex gap-2 mt-2">
+<button class="text-xs px-2 py-1 rounded bg-neutral-100 text-neutral-700 font-medium">Filter</button>
+<button class="text-xs px-2 py-1 rounded bg-neutral-100 text-neutral-700 font-medium">Contact</button>
+</div>
+</div>
+</div>
+</div>
+<div class="scr p-4 gap-3 pb-12">
+<div class="flex items-center gap-2 mb-4">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Trinity Lutheran</h2>
+</div>
+<div class="space-y-3">
+<div class="p-3 bg-primary-50 rounded-lg border border-primary-200">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Photographer Filter</h3>
+<button class="text-primary-600 text-sm font-medium">Edit</button>
+</div>
+<div class="flex gap-1 flex-wrap">
+<span class="px-2 py-1 text-xs font-medium bg-white text-neutral-700 rounded border border-primary-300">Alex</span>
+<span class="px-2 py-1 text-xs font-medium bg-white text-neutral-700 rounded border border-primary-300">Jordan</span>
+<button class="px-2 py-1 text-xs text-primary-600 font-medium rounded border border-dashed border-primary-300">+ Add</button>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="font-semibold text-neutral-950 text-sm mb-2">Agent Contact</h3>
+<div class="text-sm text-neutral-700">
+<p><strong>Sarah Chen</strong></p>
+<p class="text-neutral-600">sarah@trinity.edu</p>
+<p class="text-neutral-600">+1 (555) 123-4567</p>
+</div>
+<button class="w-full mt-2 px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded">Call Agent</button>
+</div>
+<div class="space-y-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Tier Details</h3>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between">
+<span class="text-sm font-medium text-neutral-700">Tier</span>
+<span class="text-sm font-bold text-neutral-950">Platinum (2 shooters)</span>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between">
+<span class="text-sm font-medium text-neutral-700">Delivery</span>
+<span class="text-sm font-bold text-neutral-950">Web + Print</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="scr p-4 gap-3 pb-12">
+<div class="flex items-center gap-2 mb-4">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Room Setup</h2>
+</div>
+<div class="space-y-3">
+<div class="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="text-sm font-bold text-neutral-950 mb-3">Main Stage</h3>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
+<span class="text-sm font-medium text-neutral-700">Main backdrop</span>
+<input type="checkbox" checked class="w-4 h-4">
+</div>
+<div class="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
+<span class="text-sm font-medium text-neutral-700">Ring light</span>
+<input type="checkbox" checked class="w-4 h-4">
+</div>
+<div class="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
+<span class="text-sm font-medium text-neutral-700">Reflector stand</span>
+<input type="checkbox" class="w-4 h-4">
+</div>
+</div>
+</div>
+<div class="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="text-sm font-bold text-neutral-950 mb-3">Ceremony Area</h3>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
+<span class="text-sm font-medium text-neutral-700">Aisle markers</span>
+<input type="checkbox" checked class="w-4 h-4">
+</div>
+<div class="flex items-center justify-between p-2 bg-white rounded border border-neutral-200">
+<span class="text-sm font-medium text-neutral-700">Sound check done</span>
+<input type="checkbox" class="w-4 h-4">
+</div>
+</div>
+</div>
+<button class="w-full px-4 py-2 bg-primary-600 text-white rounded font-medium text-sm mt-4">Setup Complete</button>
+</div>
+</div>
+<div class="scr p-4 gap-3 pb-12">
+<div class="flex items-center gap-2 mb-4">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Room Tracker</h2>
+</div>
+<div class="space-y-2">
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Foyer</h3>
+<span class="text-xs font-bold text-success-700">32 shots</span>
+</div>
+<div class="w-full bg-neutral-200 rounded-full h-2">
+<div class="bg-success-500 h-2 rounded-full" style="width:85%"></div>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Main Hall</h3>
+<span class="text-xs font-bold text-warning-700">8 of 24 shots</span>
+</div>
+<div class="w-full bg-neutral-200 rounded-full h-2">
+<div class="bg-warning-500 h-2 rounded-full" style="width:33%"></div>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Ceremony Room</h3>
+<span class="text-xs font-bold text-error-700">0 of 16 shots</span>
+</div>
+<div class="w-full bg-neutral-200 rounded-full h-2">
+<div class="bg-error-500 h-2 rounded-full" style="width:0%"></div>
+</div>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold text-neutral-950 text-sm">Portraits</h3>
+<span class="text-xs font-bold text-primary-700">12 of 12 shots</span>
+</div>
+<div class="w-full bg-neutral-200 rounded-full h-2">
+<div class="bg-primary-600 h-2 rounded-full" style="width:100%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="scr p-4 gap-3 pb-12">
+<div class="flex items-center gap-2 mb-4">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Quick Count</h2>
+</div>
+<div class="space-y-3">
+<div class="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="text-sm font-semibold text-neutral-700 mb-3">Add to count</h3>
+<div class="flex gap-2 mb-3">
+<input type="number" placeholder="Count" class="flex-1 px-3 py-2 border border-neutral-300 rounded text-center font-semibold text-neutral-950">
+<button class="px-4 py-2 bg-primary-600 text-white rounded font-semibold">+</button>
+</div>
+<div class="space-y-1">
+<div class="text-xs text-neutral-600">Total Foyer: <span class="font-bold text-neutral-950">32</span></div>
+<div class="text-xs text-neutral-600">Added this session: <span class="font-bold text-primary-600">8</span></div>
+</div>
+</div>
+<div class="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="text-sm font-semibold text-neutral-700 mb-3">Quick Add</h3>
+<div class="grid grid-cols-3 gap-2">
+<button class="px-3 py-2 bg-white border border-neutral-300 rounded font-semibold text-neutral-950">+1</button>
+<button class="px-3 py-2 bg-white border border-neutral-300 rounded font-semibold text-neutral-950">+5</button>
+<button class="px-3 py-2 bg-white border border-neutral-300 rounded font-semibold text-neutral-950">+10</button>
+</div>
+</div>
+</div>
+</div>
+<div class="scr p-4 gap-3 pb-12">
+<div class="flex items-center gap-2 mb-4">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Shoot Timer</h2>
+</div>
+<div class="p-6 bg-toggl-darkBg rounded-lg mb-4">
+<div class="text-center">
+<div class="text-5xl font-black text-toggl-pink font-mono mb-2">42:15</div>
+<p class="text-sm text-neutral-400">Time elapsed</p>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<button class="w-full py-3 bg-toggl-pink text-white rounded-lg font-semibold text-sm">Pause</button>
+<button class="w-full py-3 bg-neutral-700 text-white rounded-lg font-semibold text-sm">Stop & Save</button>
+</div>
+<div class="p-3 bg-neutral-50 rounded-lg border border-neutral-200 text-sm">
+<div class="flex justify-between mb-2">
+<span class="text-neutral-600">Session started</span>
+<span class="font-semibold text-neutral-950">2:00 PM</span>
+</div>
+<div class="flex justify-between">
+<span class="text-neutral-600">Elapsed time logged</span>
+<span class="font-semibold text-neutral-950">42 min 15 sec</span>
+</div>
+</div>
+</div>
+<div class="scr p-4 gap-4 pb-12">
+<div class="flex items-center gap-2 mb-2">
+<button class="text-xl text-neutral-600">&larr;</button>
+<h2 class="text-lg font-bold text-neutral-950">Completion</h2>
+</div>
+<div class="p-4 bg-success-50 rounded-lg border border-success-300 mb-4">
+<div class="text-center mb-3">
+<div class="text-3xl mb-2">✓</div>
+<h3 class="font-bold text-success-900 text-sm">Shoot Complete</h3>
+<p class="text-xs text-success-700 mt-1">Trinity Lutheran — Mar 8</p>
+</div>
+<div class="space-y-2 text-xs text-success-800 bg-white rounded p-2">
+<div class="flex justify-between">
+<span>Total shots</span>
+<span class="font-semibold">52 of 52</span>
+</div>
+<div class="flex justify-between">
+<span>Elapsed time</span>
+<span class="font-semibold">4h 12m</span>
+</div>
+<div class="flex justify-between">
+<span>Shooters</span>
+<span class="font-semibold">2</span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+<h3 class="font-semibold text-neutral-950 text-sm mb-3">Next: Upload to Cloud</h3>
+<button class="w-full py-3 px-3 bg-primary-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 mb-2">
+<span>⬆</span>
+<span>Open Dropbox Auto HDR</span>
+</button>
+<p class="text-xs text-neutral-600">Files will auto-enhance and organize by room</p>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-[390px] flex gap-1 justify-between p-3 bg-white border-t border-neutral-200 rounded-t-2xl">
+<button onclick="showScreen(0)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Home</button>
+<button onclick="showScreen(1)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Details</button>
+<button onclick="showScreen(2)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Setup</button>
+<button onclick="showScreen(3)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Track</button>
+<button onclick="showScreen(4)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Count</button>
+<button onclick="showScreen(5)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Timer</button>
+<button onclick="showScreen(6)" class="flex-1 py-2 text-xs font-medium text-center rounded bg-neutral-100 text-neutral-700">Done</button>
+</div>
+<script>
+function showScreen(n){document.querySelectorAll('.scr').forEach((s,i)=>{s.classList.toggle('on',i===n)})}
+// Simulated order data
+const order = {
+  orderNum: '323',
+  agentName: 'Sarah Chen',
+  clientName: 'Trinity Lutheran',
+  address: '456 Oak Street, Springfield',
+  tier: 'Platinum',
+  shooters: 2,
+  eventDate: '2025-03-08',
+  totalShots: 52,
+  startTime: '2:00 PM',
+  elapsedTime: '4h 12m',
+  rooms: [
+    {id:'foyer',name:'Foyer',target:38,current:32,priority:'high'},
+    {id:'hall',name:'Main Hall',target:24,current:8,priority:'medium'},
+    {id:'ceremony',name:'Ceremony Room',target:16,current:0,priority:'urgent'},
+    {id:'portraits',name:'Portraits',target:12,current:12,priority:'complete'}
+  ],
+  photographers: ['Alex','Jordan'],
+  agentPhone: '+1 (555) 123-4567',
+  agentEmail: 'sarah@trinity.edu',
+  tierDetails: {
+    name: 'Platinum',
+    shooters: 2,
+    delivery: 'Web + Print'
+  },
+  setupChecklist: {
+    'Main Stage': {items:['Main backdrop','Ring light','Reflector stand'],checked:[true,true,false]},
+    'Ceremony Area': {items:['Aisle markers','Sound check done'],checked:[true,false]}
+  }
+};
+// Room tracking and shot counter logic
+let sessionShots = 0;
+let timerSeconds = 0;
+function addShots(n){
+  sessionShots += n;
+  order.rooms[0].current += n;
+  updateFooter();
+  console.log(`Added ${n} shots. Total session: ${sessionShots}`);
+}
+function updateFooter(){
+  const total = order.rooms.reduce((sum,r)=>sum+r.current,0);
+  console.log(`Total shots: ${total}/${order.totalShots}`);
+}
+function updateRoomProgress(roomId,count){
+  const room = order.rooms.find(r=>r.id===roomId);
+  if(room){
+    room.current = count;
+    updateFooter();
+  }
+}
+// Timer functionality
+function formatTime(seconds){
+  const hours = Math.floor(seconds/3600);
+  const minutes = Math.floor((seconds%3600)/60);
+  const secs = seconds%60;
+  return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+function startTimer(){
+  setInterval(()=>{timerSeconds++;},1000);
+}
+function getCurrentTime(){
+  const now = new Date();
+  return now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+// Room setup completion tracking
+function checkSetupItem(section,index){
+  const checklist = order.setupChecklist[section].checked;
+  checklist[index] = !checklist[index];
+  console.log(`${section} item ${index+1}: ${checklist[index]?'✓':'✗'}`);
+}
+function isSetupComplete(){
+  return Object.values(order.setupChecklist).every(section=>
+    section.checked.every(checked=>checked===true)
+  );
+}
+// Quick shot logging
+function logQuickShot(amount){
+  addShots(amount);
+  console.log(`Quick shot logged: +${amount}`);
+}
+// Dropbox integration
+function createDropboxFolder(orderNum,agentName,address){
+  const folderName = orderNum+' - '+agentName+' - '+address;
+  console.log('[Dropbox] Would create: AutoHDR/'+folderName+'/01-RAW-Photos');
+  // In production: Dropbox API via Trigger.dev task
+  // 1. Check if folder starting with orderNum exists
+  // 2. If not, create parent + 01-RAW-Photos subfolder
+  // 3. Store folder_id in Supabase for future reference
+  return folderName;
+}
+
+// Init
+renderRooms();updateFooter();
+</script>
+</body>
+</html>

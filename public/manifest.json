@@ -1,23 +1,25 @@
 {
-  "name": "323 Media Shoot List",
-  "short_name": "323 Media",
-  "description": "Photo shoot tracking app for 323 Media photographers",
+  "name": "323 Media Shoot Tracker",
+  "short_name": "323 Shoot",
+  "description": "Mobile-first shoot tracking for 323 Media photographers",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#F6F9FC",
+  "theme_color": "#635BFF",
   "orientation": "portrait",
+  "categories": ["productivity", "photography"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
-
