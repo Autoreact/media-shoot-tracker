@@ -58,14 +58,20 @@ function getShooterInfo(id: PhotographerId) {
 }
 
 export default function AppointmentsScreen({ onSelectAppointment, onSettings, onReports }: Props): React.ReactElement {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [appointments, setAppointments] = useState<AryeoAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [shooterFilter, setShooterFilter] = useState<PhotographerId | 'all'>('all');
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
 
+  // Initialize date on client only to avoid SSR hydration mismatch
+  useEffect(() => {
+    if (!currentDate) setCurrentDate(new Date());
+  }, [currentDate]);
+
   const fetchAppointments = useCallback(async (): Promise<void> => {
+    if (!currentDate) return;
     setLoading(true);
     try {
       // Use local date (not UTC) to avoid timezone/DST off-by-one
@@ -97,22 +103,26 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   }, [fetchAppointments]);
 
   const navigateDate = (delta: number): void => {
+    if (!currentDate) return;
     const d = new Date(currentDate);
     d.setDate(d.getDate() + delta);
     setCurrentDate(d);
   };
 
-  const isToday =
-    currentDate.toDateString() === new Date().toDateString();
+  const isToday = currentDate
+    ? currentDate.toDateString() === new Date().toDateString()
+    : true;
 
   const jumpToToday = (): void => setCurrentDate(new Date());
 
   // Date pills: show 5 days centered on current
-  const datePills = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() + (i - 2));
-    return d;
-  });
+  const datePills = currentDate
+    ? Array.from({ length: 5 }, (_, i) => {
+        const d = new Date(currentDate);
+        d.setDate(d.getDate() + (i - 2));
+        return d;
+      })
+    : [];
 
   // Filter appointments
   const filtered =
@@ -162,7 +172,7 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
           </button>
           <div className="text-center">
             <h2 className="text-sm font-bold text-neutral-950 dark:text-white">
-              {formatDate(currentDate)}
+              {currentDate ? formatDate(currentDate) : '\u00A0'}
             </h2>
             {!isToday && (
               <button
@@ -184,7 +194,7 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
         {/* Date pills — centered */}
         <div className="flex gap-2 justify-center pb-2 hide-scrollbar">
           {datePills.map((d, i) => {
-            const isSelected = d.toDateString() === currentDate.toDateString();
+            const isSelected = d.toDateString() === currentDate?.toDateString();
             const isTodayPill = d.toDateString() === new Date().toDateString();
             return (
               <button
