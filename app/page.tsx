@@ -133,7 +133,7 @@ export default function HomePage(): React.ReactElement {
 
   const handleCompleteShoot = useCallback((): void => {
     shootHook.completeShoot();
-    // Save to shoot history for reports
+    // Save to shoot history for reports + mark as completed on appointments screen
     if (activeShoot) {
       try {
         const stored = localStorage.getItem('v2-shoot-history');
@@ -150,6 +150,14 @@ export default function HomePage(): React.ReactElement {
         );
         filtered.unshift(completed);
         localStorage.setItem('v2-shoot-history', JSON.stringify(filtered));
+
+        // Auto-mark as completed on appointments screen
+        const completedOrders = localStorage.getItem('v2-completed-orders');
+        const orders: string[] = completedOrders ? JSON.parse(completedOrders) : [];
+        if (!orders.includes(activeShoot.aryeoOrderNumber)) {
+          orders.push(activeShoot.aryeoOrderNumber);
+          localStorage.setItem('v2-completed-orders', JSON.stringify(orders));
+        }
       } catch {
         // Silent fail
       }

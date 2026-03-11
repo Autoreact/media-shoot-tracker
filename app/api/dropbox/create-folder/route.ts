@@ -4,6 +4,8 @@ let cachedAccessToken = process.env.DROPBOX_ACCESS_TOKEN || '';
 const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN;
 const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY;
 const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET;
+// Team root namespace — ensures folders go to team-level /AutoHDR/ not personal space
+const DROPBOX_ROOT_NAMESPACE_ID = process.env.DROPBOX_ROOT_NAMESPACE_ID || '2618545747';
 
 /** Refresh the Dropbox access token using the refresh token */
 async function refreshAccessToken(): Promise<string | null> {
@@ -41,17 +43,20 @@ async function getAccessToken(): Promise<string | null> {
   return null;
 }
 
-/** Make Dropbox API call with auto-refresh on 401 */
+/** Make Dropbox API call with auto-refresh on 401, targeting team root namespace */
 async function dropboxFetch(url: string, body: Record<string, unknown>): Promise<Response> {
   const token = await getAccessToken();
   if (!token) throw new Error('No Dropbox token available');
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: DROPBOX_ROOT_NAMESPACE_ID }),
+  };
+
   let res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -60,12 +65,10 @@ async function dropboxFetch(url: string, body: Record<string, unknown>): Promise
     const newToken = await refreshAccessToken();
     if (!newToken) throw new Error('Token refresh failed');
 
+    headers.Authorization = `Bearer ${newToken}`;
     res = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${newToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
   }

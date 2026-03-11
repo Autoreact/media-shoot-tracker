@@ -11,7 +11,9 @@ import {
   ChartBarIcon,
   XMarkIcon,
   PlusIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
+import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 
 interface Props {
   onSelectAppointment: (appointment: AryeoAppointment) => void;
@@ -65,6 +67,29 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   const [shooterFilter, setShooterFilter] = useState<PhotographerId | 'all'>('all');
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [completedOrders, setCompletedOrders] = useState<Set<string>>(new Set());
+
+  // Load completed shoots from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('v2-completed-orders');
+      if (stored) setCompletedOrders(new Set(JSON.parse(stored)));
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleCompleted = useCallback((orderNumber: string, e: React.MouseEvent): void => {
+    e.stopPropagation();
+    setCompletedOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderNumber)) {
+        next.delete(orderNumber);
+      } else {
+        next.add(orderNumber);
+      }
+      localStorage.setItem('v2-completed-orders', JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   // Initialize date on client only to avoid SSR hydration mismatch
   useEffect(() => {
@@ -284,6 +309,8 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
               key={apt.id}
               appointment={apt}
               onSelect={onSelectAppointment}
+              isCompleted={completedOrders.has(apt.orderNumber)}
+              onToggleComplete={toggleCompleted}
             />
           ))
         )}
@@ -319,9 +346,13 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
 function AppointmentCard({
   appointment,
   onSelect,
+  isCompleted,
+  onToggleComplete,
 }: {
   appointment: AryeoAppointment;
   onSelect: (apt: AryeoAppointment) => void;
+  isCompleted: boolean;
+  onToggleComplete: (orderNumber: string, e: React.MouseEvent) => void;
 }): React.ReactElement {
   const isCancelled = appointment.status === 'CANCELLED';
 
@@ -464,8 +495,25 @@ function AppointmentCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-        <span>Order #{appointment.orderNumber}</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => onToggleComplete(appointment.orderNumber, e)}
+            className="flex items-center gap-1 -ml-0.5"
+          >
+            {isCompleted ? (
+              <CheckCircleSolidIcon className="w-5 h-5 text-success-500" />
+            ) : (
+              <CheckCircleIcon className="w-5 h-5 text-neutral-300 dark:text-neutral-600" />
+            )}
+          </button>
+          <span>Order #{appointment.orderNumber}</span>
+        </div>
         <div className="flex items-center gap-1">
+          {isCompleted && (
+            <span className="px-1.5 py-0.5 bg-success-50 dark:bg-success-900/30 text-success-600 dark:text-success-400 text-[10px] font-semibold rounded normal-case tracking-normal mr-1">
+              Done
+            </span>
+          )}
           <span className="font-medium text-primary-500">
             {appointment.beds ?? '–'}/{appointment.baths ?? '–'} tier
           </span>
