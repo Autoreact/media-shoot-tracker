@@ -38,7 +38,9 @@ export function useShootSync() {
             mode: shoot.mode,
             target_shots: shoot.target,
             services: shoot.services,
-            actual_shots: shoot.rooms.reduce((sum, r) => sum + r.actualShots, 0),
+            actual_shots: shoot.mode === 'quick'
+              ? shoot.quickCountTotal
+              : shoot.rooms.reduce((sum, r) => sum + r.actualShots, 0),
             quick_count_total: shoot.quickCountTotal,
             timer_seconds: shoot.timerSeconds,
             start_time: shoot.startTime,

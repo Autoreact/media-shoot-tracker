@@ -1,5 +1,5 @@
 /// Service Worker for 323 Media Shoot Tracker
-/// Caches app shell + API responses for offline-first experience
+/// Caches app shell for offline-first experience (API routes are network-only via Supabase sync)
 
 const CACHE_NAME = 'shoot-tracker-v2';
 const STATIC_ASSETS = [
@@ -54,8 +54,12 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Network failed — return cached version
-          return cachedResponse;
+          // Network failed — return cached version or offline fallback
+          return cachedResponse || new Response('Offline', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' },
+          });
         });
 
       // Return cached immediately if available, update in background

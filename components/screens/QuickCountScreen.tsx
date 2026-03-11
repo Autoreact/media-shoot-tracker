@@ -83,13 +83,13 @@ export default function QuickCountScreen({
               onClick={onTimer}
               className="w-9 h-9 rounded-lg bg-toggl-dark-bg flex items-center justify-center"
             >
-              <ClockIcon className="w-4.5 h-4.5 text-primary-400" />
+              <ClockIcon className="w-[18px] h-[18px] text-primary-400" />
             </button>
             <button
               onClick={onSwitchMode}
               className="w-9 h-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
             >
-              <ArrowsRightLeftIcon className="w-4.5 h-4.5 text-neutral-600 dark:text-neutral-300" />
+              <ArrowsRightLeftIcon className="w-[18px] h-[18px] text-neutral-600 dark:text-neutral-300" />
             </button>
           </div>
         </div>
@@ -234,7 +234,7 @@ export default function QuickCountScreen({
                 : 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
             }`}
           >
-            {showGreenComplete ? 'Complete Shoot' : 'Complete Shoot'}
+            {showGreenComplete ? '\u2713 Complete Shoot' : 'Complete Shoot'}
           </button>
         </div>
       </div>
