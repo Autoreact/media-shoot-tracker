@@ -41,10 +41,10 @@ export default function CompletionScreen({
   const [emailSent, setEmailSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [droneFiles, setDroneFiles] = useState<
-    { name: string; url: string; thumbnailUrl?: string }[]
+    { id: string; name: string; url: string; thumbnailUrl?: string }[]
   >([]);
   const [lotLineFiles, setLotLineFiles] = useState<
-    { name: string; url: string; thumbnailUrl?: string }[]
+    { id: string; name: string; url: string; thumbnailUrl?: string }[]
   >([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{
@@ -70,6 +70,16 @@ export default function CompletionScreen({
     return () => clearTimeout(timer);
   }, []);
 
+  // Revoke object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      [...droneFiles, ...lotLineFiles].forEach((f) => {
+        if (f.thumbnailUrl?.startsWith('blob:'))
+          URL.revokeObjectURL(f.thumbnailUrl);
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const skippedRooms = shoot.rooms.filter(
     (r) => r.skipped || (!r.completed && r.enabled)
   );
@@ -78,8 +88,8 @@ export default function CompletionScreen({
   const durationMinutes = Math.round(shoot.timerSeconds / 60);
 
   const handleDurationSave = (): void => {
-    const val = parseInt(durationInput);
-    if (val && val >= 0) {
+    const val = parseInt(durationInput, 10);
+    if (!Number.isNaN(val) && val >= 0) {
       const newSeconds = val * 60;
       shootHook.updateTimerSeconds(newSeconds);
       // Sync updated duration to Toggl if we have an entry
@@ -121,16 +131,12 @@ export default function CompletionScreen({
             },
             totals,
             attachmentUrls: [
-              ...droneFiles.map((f) => ({
-                name: f.name,
-                url: f.url,
-                type: 'drone',
-              })),
-              ...lotLineFiles.map((f) => ({
-                name: f.name,
-                url: f.url,
-                type: 'lot_line',
-              })),
+              ...droneFiles
+                .filter((f) => f.url)
+                .map((f) => ({ name: f.name, url: f.url, type: 'drone' })),
+              ...lotLineFiles
+                .filter((f) => f.url)
+                .map((f) => ({ name: f.name, url: f.url, type: 'lot_line' })),
             ],
           }),
         }
@@ -157,18 +163,17 @@ export default function CompletionScreen({
     const toUpload = Array.from(files).slice(0, remaining);
     if (toUpload.length === 0) return;
 
-    // Optimistically show thumbnails immediately
-    const pending: { name: string; url: string; thumbnailUrl?: string }[] =
-      toUpload.map((file) => ({
-        name: file.name,
-        url: '', // will be filled after upload
-        thumbnailUrl: file.type.startsWith('image/')
-          ? URL.createObjectURL(file)
-          : undefined,
-      }));
+    // Assign unique IDs so reconciliation survives deletions
+    const pending = toUpload.map((file) => ({
+      id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: file.name,
+      url: '',
+      thumbnailUrl: file.type.startsWith('image/')
+        ? URL.createObjectURL(file)
+        : undefined,
+    }));
 
     const setter = type === 'drone' ? setDroneFiles : setLotLineFiles;
-    const startIdx = currentFiles.length;
     setter((prev) => [...prev, ...pending]);
 
     setUploading(type);
@@ -176,6 +181,7 @@ export default function CompletionScreen({
 
     for (let i = 0; i < toUpload.length; i++) {
       const file = toUpload[i]!;
+      const entryId = pending[i]!.id;
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -188,15 +194,12 @@ export default function CompletionScreen({
 
         if (res.ok) {
           const data = await res.json();
-          // Update the pending entry with the real URL
           setter((prev) =>
-            prev.map((f, idx) =>
-              idx === startIdx + i ? { ...f, url: data.url } : f
-            )
+            prev.map((f) => (f.id === entryId ? { ...f, url: data.url } : f))
           );
         }
       } catch {
-        // File already shows as thumbnail, just won't have a remote URL
+        // File shows as thumbnail, just won't have a remote URL
       }
       setUploadProgress({ done: i + 1, total: toUpload.length });
     }

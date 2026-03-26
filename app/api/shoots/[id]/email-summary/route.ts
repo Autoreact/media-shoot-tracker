@@ -6,6 +6,16 @@ const f = `-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto,
 const fd = `-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
 const fm = `'SF Mono', SFMono-Regular, Menlo, Consolas, monospace`;
 
+/** Escape HTML special characters to prevent injection in email templates */
+function esc(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -97,7 +107,7 @@ export async function POST(
         const done = r.completed;
         const isLast = i === enabledRooms.length - 1;
         return `<tr>
-        <td style="padding: 10px 0; ${isLast ? '' : 'border-bottom: 1px solid #F2F2F7;'} font-size: 13px; color: #1D1D1F; font-family: ${f};">${r.name}</td>
+        <td style="padding: 10px 0; ${isLast ? '' : 'border-bottom: 1px solid #F2F2F7;'} font-size: 13px; color: #1D1D1F; font-family: ${f};">${esc(r.name)}</td>
         <td style="padding: 10px 0; ${isLast ? '' : 'border-bottom: 1px solid #F2F2F7;'} font-size: 13px; color: #48484A; text-align: center; font-variant-numeric: tabular-nums; font-family: ${fm};">${r.actualShots}/${r.expectedShots}</td>
         <td style="padding: 10px 0; ${isLast ? '' : 'border-bottom: 1px solid #F2F2F7;'} text-align: right; font-family: ${f}; width: 32px;">
           <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${done ? '#30D158' : '#FF9F0A'};"></span>
@@ -112,8 +122,8 @@ export async function POST(
       .map(
         (r: any) => `
       <tr><td style="padding: 6px 0; font-family: ${f}; font-size: 13px; line-height: 1.5;">
-        <span style="color: #1D1D1F; font-weight: 600;">${r.name}</span>
-        <span style="color: #8E8E93;"> — ${r.notes}</span>
+        <span style="color: #1D1D1F; font-weight: 600;">${esc(r.name)}</span>
+        <span style="color: #8E8E93;"> — ${esc(r.notes)}</span>
       </td></tr>`
       )
       .join('');
@@ -138,7 +148,7 @@ export async function POST(
                   <div style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor};"></div>
                 </td>
                 <td style="vertical-align: middle;">
-                  <a href="${a.url}" style="font-size: 13px; color: #635BFF; text-decoration: none; font-weight: 500;">${a.name}</a>
+                  <a href="${esc(a.url)}" style="font-size: 13px; color: #635BFF; text-decoration: none; font-weight: 500;">${esc(a.name)}</a>
                   <span style="font-size: 11px; color: #C7C7CC; margin-left: 6px;">${typeLabel}</span>
                 </td>
               </tr></table>
@@ -181,8 +191,8 @@ export async function POST(
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
         <td>
           <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #30D158; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px;">Shoot Complete</p>
-          <h1 style="font-family: ${fd}; font-size: 28px; font-weight: 700; color: #1D1D1F; margin: 0; letter-spacing: -0.5px; line-height: 1.15;">${shoot.address || 'No Address'}</h1>
-          <p style="font-family: ${f}; font-size: 14px; color: #8E8E93; margin: 6px 0 0; line-height: 1.4;">${[shoot.city ? `${shoot.city}, FL` : '', completionDate].filter(Boolean).join(' · ')}</p>
+          <h1 style="font-family: ${fd}; font-size: 28px; font-weight: 700; color: #1D1D1F; margin: 0; letter-spacing: -0.5px; line-height: 1.15;">${esc(shoot.address) || 'No Address'}</h1>
+          <p style="font-family: ${f}; font-size: 14px; color: #8E8E93; margin: 6px 0 0; line-height: 1.4;">${[shoot.city ? `${esc(shoot.city)}, FL` : '', completionDate].filter(Boolean).join(' · ')}</p>
         </td>
         <td width="64" style="vertical-align: top; text-align: right;">
           <div style="width: 48px; height: 48px; background: ${pct >= 100 ? '#30D158' : '#F2F2F7'}; border-radius: 50%; text-align: center; line-height: 48px; margin-left: auto;">
@@ -218,8 +228,8 @@ export async function POST(
         ${row('Order', `#${shoot.aryeoOrderNumber || id}`)}
         ${row('Tier', tierDisplay)}
         ${row('Photographer', photographer)}
-        ${row('Agent', shoot.agentName || '—')}
-        ${shoot.brokerage ? row('Brokerage', shoot.brokerage) : ''}
+        ${row('Agent', esc(shoot.agentName) || '—')}
+        ${shoot.brokerage ? row('Brokerage', esc(shoot.brokerage)) : ''}
         ${row('Duration', durationStr)}
         ${row('Rooms', `${completedRooms.length} of ${enabledRooms.length}`)}
       </table>
@@ -240,7 +250,7 @@ export async function POST(
             </td>
             <td>
               <p style="font-family: ${f}; font-size: 13px; font-weight: 600; color: #1D1D1F; margin: 0 0 3px;">${incompleteRooms.length} room${incompleteRooms.length !== 1 ? 's' : ''} incomplete</p>
-              <p style="font-family: ${f}; font-size: 12px; color: #8E8E93; margin: 0; line-height: 1.5;">${incompleteRooms.map((r: { name: string }) => r.name).join('  ·  ')}</p>
+              <p style="font-family: ${f}; font-size: 12px; color: #8E8E93; margin: 0; line-height: 1.5;">${incompleteRooms.map((r: { name: string }) => esc(r.name)).join('  ·  ')}</p>
             </td>
           </tr></table>
         </td></tr>
@@ -280,7 +290,7 @@ export async function POST(
             </td>
             <td>
               <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #8E8E93; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.8px;">Dropbox Folder</p>
-              <a href="${shoot.dropboxUrl || `https://www.dropbox.com/home/${encodeURIComponent(shoot.dropboxFolderPath)}`}" style="font-family: ${fm}; font-size: 11px; color: #635BFF; word-break: break-all; line-height: 1.5; text-decoration: none;">${shoot.dropboxFolderPath}</a>
+              <a href="${esc(shoot.dropboxUrl || `https://www.dropbox.com/home/${encodeURIComponent(shoot.dropboxFolderPath)}`)}" style="font-family: ${fm}; font-size: 11px; color: #635BFF; word-break: break-all; line-height: 1.5; text-decoration: none;">${esc(shoot.dropboxFolderPath)}</a>
             </td>
           </tr></table>
         </td></tr>
@@ -330,7 +340,7 @@ export async function POST(
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #F9F9FB; border-radius: 12px;">
         <tr><td style="padding: 16px;">
           <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.8px;">Notes</p>
-          <p style="font-family: ${f}; font-size: 13px; color: #1D1D1F; margin: 0; line-height: 1.6;">${shoot.globalNotes}</p>
+          <p style="font-family: ${f}; font-size: 13px; color: #1D1D1F; margin: 0; line-height: 1.6;">${esc(shoot.globalNotes)}</p>
         </td></tr>
       </table>
     </td></tr>

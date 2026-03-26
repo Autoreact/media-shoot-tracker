@@ -82,6 +82,11 @@ export default function TimerScreen({
   const isRunning = shoot.timerRunning;
   const [togglSynced, setTogglSynced] = useState(!!shoot.togglTimeEntryId);
 
+  // Keep synced indicator in sync if Toggl entry is set from elsewhere (e.g. auto-start)
+  useEffect(() => {
+    setTogglSynced(!!shoot.togglTimeEntryId);
+  }, [shoot.togglTimeEntryId]);
+
   // Toggl API integration
   const startTogglEntry = async (): Promise<void> => {
     try {
