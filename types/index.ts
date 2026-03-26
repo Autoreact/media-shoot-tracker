@@ -177,6 +177,9 @@ export interface ShootState {
   // Dropbox
   dropboxFolderPath: string;
 
+  // Toggl
+  togglTimeEntryId: number | null;
+
   // Status
   status: 'active' | 'completed';
   startedAt: string | null;

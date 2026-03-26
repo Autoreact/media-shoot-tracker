@@ -38,7 +38,11 @@ export default function HomePage(): React.ReactElement {
 
   // Resume active shoot on page load
   useEffect(() => {
-    if (activeShoot && activeShoot.status === 'active' && screen === 'appointments') {
+    if (
+      activeShoot &&
+      activeShoot.status === 'active' &&
+      screen === 'appointments'
+    ) {
       setScreen(activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -52,8 +56,11 @@ export default function HomePage(): React.ReactElement {
 
   // Background timer — keeps ticking even when not on Timer screen
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const bgSecondsRef = useRef(activeShoot?.timerSeconds ?? 0);
-  bgSecondsRef.current = activeShoot?.timerSeconds ?? 0;
+  const bgSecondsRef = useRef(0);
+  // Always sync ref from state, but reset to 0 when a fresh shoot starts
+  if (activeShoot) {
+    bgSecondsRef.current = activeShoot.timerSeconds;
+  }
 
   useEffect(() => {
     if (activeShoot?.timerRunning && screen !== 'timer') {
@@ -104,11 +111,42 @@ export default function HomePage(): React.ReactElement {
         rooms
       );
 
+      // Timer auto-starts inside startShoot — just fire Toggl
+      const photographerNames: Record<string, string> = {
+        nick: 'Nick',
+        jared: 'Jared',
+        ben: 'Ben',
+      };
+      const pName = photographerNames[photographerId] || photographerId;
+      fetch('/api/toggl/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: `Order #${selectedAppointment.orderNumber} — ${selectedAppointment.address} — ${pName}`,
+          tags: ['323media', selectedTier, photographerId],
+        }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.id) shootHook.setTogglTimeEntryId(data.id);
+          }
+        })
+        .catch(() => {});
+
       // Immediate sync on shoot start + trigger Dropbox folder creation
       syncNow(newShoot);
       // Use fullAddress from Aryeo (includes city/state/zip), fallback to constructing it
-      const dropboxAddress = selectedAppointment.fullAddress
-        || [selectedAppointment.address, selectedAppointment.city, `${selectedAppointment.state || 'FL'} ${selectedAppointment.zip || ''}`].filter(Boolean).join(', ').trim();
+      const dropboxAddress =
+        selectedAppointment.fullAddress ||
+        [
+          selectedAppointment.address,
+          selectedAppointment.city,
+          `${selectedAppointment.state || 'FL'} ${selectedAppointment.zip || ''}`,
+        ]
+          .filter(Boolean)
+          .join(', ')
+          .trim();
       fetch('/api/dropbox/create-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,21 +155,42 @@ export default function HomePage(): React.ReactElement {
           agentName: selectedAppointment.agentName,
           address: dropboxAddress,
         }),
-      }).then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          console.log('[Dropbox] Folder created:', data.dropboxUrl);
-        } else {
-          console.error('[Dropbox] Folder creation failed:', res.status);
-        }
-      }).catch((err) => console.error('[Dropbox] Network error:', err));
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            console.log('[Dropbox] Folder created:', data.dropboxUrl);
+          } else {
+            console.error('[Dropbox] Folder creation failed:', res.status);
+          }
+        })
+        .catch((err) => console.error('[Dropbox] Network error:', err));
 
       setScreen(selectedMode === 'detail' ? 'room_tracker' : 'quick_count');
     },
-    [selectedAppointment, selectedTier, selectedMode, shootHook, syncNow, settings.defaultPhotographer]
+    [
+      selectedAppointment,
+      selectedTier,
+      selectedMode,
+      shootHook,
+      syncNow,
+      settings.defaultPhotographer,
+    ]
   );
 
   const handleCompleteShoot = useCallback((): void => {
+    // Stop timer if still running
+    if (activeShoot?.timerRunning) {
+      shootHook.stopTimer();
+    }
+    // Stop Toggl entry if one exists
+    if (activeShoot?.togglTimeEntryId) {
+      fetch('/api/toggl/stop', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeEntryId: activeShoot.togglTimeEntryId }),
+      }).catch(() => {});
+    }
     shootHook.completeShoot();
     // Save to shoot history for reports + mark as completed on appointments screen
     if (activeShoot) {
@@ -153,7 +212,9 @@ export default function HomePage(): React.ReactElement {
 
         // Auto-mark as completed on appointments screen
         const completedOrders = localStorage.getItem('v2-completed-orders');
-        const orders: string[] = completedOrders ? JSON.parse(completedOrders) : [];
+        const orders: string[] = completedOrders
+          ? JSON.parse(completedOrders)
+          : [];
         if (!orders.includes(activeShoot.aryeoOrderNumber)) {
           orders.push(activeShoot.aryeoOrderNumber);
           localStorage.setItem('v2-completed-orders', JSON.stringify(orders));
@@ -165,11 +226,20 @@ export default function HomePage(): React.ReactElement {
     setScreen('completion');
   }, [shootHook, activeShoot]);
 
-  const handleNewShoot = useCallback((): void => {
+  const handleNewShoot = useCallback(async (): Promise<void> => {
+    // Ensure final state is persisted to Supabase before clearing
+    if (activeShoot) {
+      const completed = {
+        ...activeShoot,
+        status: 'completed' as const,
+        completedAt: activeShoot.completedAt || new Date().toISOString(),
+      };
+      await syncNow(completed);
+    }
     shootHook.clearShoot();
     setSelectedAppointment(null);
     setScreen('appointments');
-  }, [shootHook]);
+  }, [shootHook, activeShoot, syncNow]);
 
   const goBack = useCallback((): void => {
     switch (screen) {
@@ -184,10 +254,14 @@ export default function HomePage(): React.ReactElement {
         setScreen('room_setup');
         break;
       case 'timer':
-        setScreen(activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count');
+        setScreen(
+          activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count'
+        );
         break;
       case 'completion':
-        setScreen(activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count');
+        setScreen(
+          activeShoot?.mode === 'detail' ? 'room_tracker' : 'quick_count'
+        );
         break;
       case 'settings':
       case 'reports':
@@ -278,9 +352,7 @@ export default function HomePage(): React.ReactElement {
           />
         )}
 
-        {screen === 'reports' && (
-          <ReportsScreen onBack={goBack} />
-        )}
+        {screen === 'reports' && <ReportsScreen onBack={goBack} />}
       </div>
     </div>
   );
