@@ -51,13 +51,14 @@ export function useShoot() {
         shots: 0,
         target: tierInfo.targetShots,
         quickCountTotal: 0,
-        timerRunning: false,
+        timerRunning: true,
         timerSeconds: 0,
-        startTime: null,
+        startTime: new Date().toISOString(),
         endTime: null,
         notes: {},
         globalNotes: '',
         dropboxFolderPath,
+        togglTimeEntryId: null,
         status: 'active',
         startedAt: new Date().toISOString(),
         completedAt: null,
@@ -102,13 +103,14 @@ export function useShoot() {
         shots: 0,
         target: tierInfo.targetShots,
         quickCountTotal: 0,
-        timerRunning: false,
+        timerRunning: true,
         timerSeconds: 0,
-        startTime: null,
+        startTime: new Date().toISOString(),
         endTime: null,
         notes: {},
         globalNotes: '',
         dropboxFolderPath,
+        togglTimeEntryId: null,
         status: 'active',
         startedAt: new Date().toISOString(),
         completedAt: null,
@@ -297,9 +299,7 @@ export function useShoot() {
         if (!prev) return prev;
         return {
           ...prev,
-          rooms: prev.rooms.map((r) =>
-            r.id === roomId ? { ...r, notes } : r
-          ),
+          rooms: prev.rooms.map((r) => (r.id === roomId ? { ...r, notes } : r)),
         };
       });
     },
@@ -318,7 +318,16 @@ export function useShoot() {
 
   // Add custom room
   const addCustomRoom = useCallback(
-    (name: string, category: 'misc' | 'beds_baths' | 'main_living' | 'kitchen_dining' | 'exteriors' | 'twilights' = 'misc'): void => {
+    (
+      name: string,
+      category:
+        | 'misc'
+        | 'beds_baths'
+        | 'main_living'
+        | 'kitchen_dining'
+        | 'exteriors'
+        | 'twilights' = 'misc'
+    ): void => {
       setShoot((prev) => {
         if (!prev) return prev;
         const newRoom: ShootRoom = {
@@ -337,6 +346,17 @@ export function useShoot() {
           enabled: true,
         };
         return { ...prev, rooms: [...prev.rooms, newRoom] };
+      });
+    },
+    [setShoot]
+  );
+
+  // Toggl
+  const setTogglTimeEntryId = useCallback(
+    (id: number | null): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        return { ...prev, togglTimeEntryId: id };
       });
     },
     [setShoot]
@@ -431,6 +451,7 @@ export function useShoot() {
     adjustEndTime,
     updateRoomNotes,
     updateGlobalNotes,
+    setTogglTimeEntryId,
     completeShoot,
     clearShoot,
     getTotals,

@@ -40,9 +40,17 @@ export default function CompletionScreen({
   const [showConfetti, setShowConfetti] = useState(true);
   const [emailSent, setEmailSent] = useState(false);
   const [sending, setSending] = useState(false);
-  const [droneFiles, setDroneFiles] = useState<{ name: string; url: string }[]>([]);
-  const [lotLineFiles, setLotLineFiles] = useState<{ name: string; url: string }[]>([]);
+  const [droneFiles, setDroneFiles] = useState<
+    { name: string; url: string; thumbnailUrl?: string }[]
+  >([]);
+  const [lotLineFiles, setLotLineFiles] = useState<
+    { name: string; url: string; thumbnailUrl?: string }[]
+  >([]);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [dropboxCreating, setDropboxCreating] = useState(false);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
   const droneInputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +70,9 @@ export default function CompletionScreen({
     return () => clearTimeout(timer);
   }, []);
 
-  const skippedRooms = shoot.rooms.filter((r) => r.skipped || (!r.completed && r.enabled));
+  const skippedRooms = shoot.rooms.filter(
+    (r) => r.skipped || (!r.completed && r.enabled)
+  );
   const hasSkipped = skippedRooms.length > 0;
 
   const durationMinutes = Math.round(shoot.timerSeconds / 60);
@@ -70,7 +80,19 @@ export default function CompletionScreen({
   const handleDurationSave = (): void => {
     const val = parseInt(durationInput);
     if (val && val >= 0) {
-      shootHook.updateTimerSeconds(val * 60);
+      const newSeconds = val * 60;
+      shootHook.updateTimerSeconds(newSeconds);
+      // Sync updated duration to Toggl if we have an entry
+      if (shoot.togglTimeEntryId) {
+        fetch('/api/toggl/update', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timeEntryId: shoot.togglTimeEntryId,
+            duration: newSeconds,
+          }),
+        }).catch(() => {});
+      }
     }
     setEditingDuration(false);
   };
@@ -78,11 +100,41 @@ export default function CompletionScreen({
   const handleSendEmail = async (): Promise<void> => {
     setSending(true);
     try {
-      const res = await fetch(`/api/shoots/${shoot.aryeoOrderNumber}/email-summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shoot, totals }),
-      });
+      // Stop Toggl timer if still running
+      if (shoot.togglTimeEntryId && shoot.timerRunning) {
+        await fetch('/api/toggl/stop', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timeEntryId: shoot.togglTimeEntryId }),
+        }).catch(() => {});
+      }
+
+      const res = await fetch(
+        `/api/shoots/${shoot.aryeoOrderNumber}/email-summary`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shoot: {
+              ...shoot,
+              dropboxUrl,
+            },
+            totals,
+            attachmentUrls: [
+              ...droneFiles.map((f) => ({
+                name: f.name,
+                url: f.url,
+                type: 'drone',
+              })),
+              ...lotLineFiles.map((f) => ({
+                name: f.name,
+                url: f.url,
+                type: 'lot_line',
+              })),
+            ],
+          }),
+        }
+      );
       if (res.ok) {
         setEmailSent(true);
       }
@@ -93,40 +145,64 @@ export default function CompletionScreen({
     }
   };
 
+  const MAX_FILES = 10;
+
   const handleFileUpload = async (
     files: FileList | null,
     type: 'drone' | 'lot_line'
   ): Promise<void> => {
     if (!files || files.length === 0) return;
-    setUploading(type);
+    const currentFiles = type === 'drone' ? droneFiles : lotLineFiles;
+    const remaining = MAX_FILES - currentFiles.length;
+    const toUpload = Array.from(files).slice(0, remaining);
+    if (toUpload.length === 0) return;
 
-    const uploaded: { name: string; url: string }[] = [];
-    for (const file of Array.from(files)) {
+    // Optimistically show thumbnails immediately
+    const pending: { name: string; url: string; thumbnailUrl?: string }[] =
+      toUpload.map((file) => ({
+        name: file.name,
+        url: '', // will be filled after upload
+        thumbnailUrl: file.type.startsWith('image/')
+          ? URL.createObjectURL(file)
+          : undefined,
+      }));
+
+    const setter = type === 'drone' ? setDroneFiles : setLotLineFiles;
+    const startIdx = currentFiles.length;
+    setter((prev) => [...prev, ...pending]);
+
+    setUploading(type);
+    setUploadProgress({ done: 0, total: toUpload.length });
+
+    for (let i = 0; i < toUpload.length; i++) {
+      const file = toUpload[i]!;
       try {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('type', type);
 
-        const res = await fetch(`/api/shoots/${shoot.aryeoOrderNumber}/upload`, {
-          method: 'POST',
-          body: formData,
-        });
+        const res = await fetch(
+          `/api/shoots/${shoot.aryeoOrderNumber}/upload`,
+          { method: 'POST', body: formData }
+        );
 
         if (res.ok) {
           const data = await res.json();
-          uploaded.push({ name: file.name, url: data.url });
+          // Update the pending entry with the real URL
+          setter((prev) =>
+            prev.map((f, idx) =>
+              idx === startIdx + i ? { ...f, url: data.url } : f
+            )
+          );
         }
       } catch {
-        // Skip failed files
+        // File already shows as thumbnail, just won't have a remote URL
       }
+      setUploadProgress({ done: i + 1, total: toUpload.length });
     }
 
-    if (type === 'drone') {
-      setDroneFiles((prev) => [...prev, ...uploaded]);
-    } else {
-      setLotLineFiles((prev) => [...prev, ...uploaded]);
-    }
     setUploading(null);
+    setUploadProgress(null);
   };
 
   // Build Dropbox URL — /home/ path with encoded folder path
@@ -179,9 +255,13 @@ export default function CompletionScreen({
               style={{
                 left: `${Math.random() * 100}%`,
                 top: '-10px',
-                backgroundColor: ['#635BFF', '#00D924', '#FFBB00', '#E57CD8', '#DF1B41'][
-                  i % 5
-                ],
+                backgroundColor: [
+                  '#635BFF',
+                  '#00D924',
+                  '#FFBB00',
+                  '#E57CD8',
+                  '#DF1B41',
+                ][i % 5],
                 animation: `confetti-fall ${1.5 + Math.random() * 2}s ease-in forwards`,
                 animationDelay: `${Math.random() * 0.5}s`,
               }}
@@ -199,7 +279,9 @@ export default function CompletionScreen({
           >
             <ChevronLeftIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
           </button>
-          <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Shoot Complete</h2>
+          <h2 className="text-lg font-bold text-neutral-950 dark:text-white">
+            Shoot Complete
+          </h2>
         </div>
       </div>
 
@@ -222,13 +304,17 @@ export default function CompletionScreen({
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1">
               Shots
             </p>
-            <p className="text-3xl font-black text-neutral-950 dark:text-white">{totals.actualTotal}</p>
+            <p className="text-3xl font-black text-neutral-950 dark:text-white">
+              {totals.actualTotal}
+            </p>
           </div>
           <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1">
               Target
             </p>
-            <p className="text-3xl font-black text-neutral-950 dark:text-white">{shoot.target}</p>
+            <p className="text-3xl font-black text-neutral-950 dark:text-white">
+              {shoot.target}
+            </p>
           </div>
           <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-1">
@@ -248,7 +334,9 @@ export default function CompletionScreen({
         {/* Duration Editor — click to type */}
         <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Duration</p>
+            <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+              Duration
+            </p>
             {editingDuration ? (
               <div className="flex items-center gap-2">
                 <input
@@ -257,7 +345,9 @@ export default function CompletionScreen({
                   value={durationInput}
                   onChange={(e) => setDurationInput(e.target.value)}
                   onBlur={handleDurationSave}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleDurationSave(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleDurationSave();
+                  }}
                   autoFocus
                   className="w-20 text-center text-lg font-bold text-neutral-950 dark:text-white bg-neutral-100 dark:bg-neutral-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   placeholder="min"
@@ -285,7 +375,8 @@ export default function CompletionScreen({
               <ExclamationTriangleIcon className="w-5 h-5 text-warning-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-warning-800 dark:text-warning-400">
-                  {skippedRooms.length} room{skippedRooms.length !== 1 ? 's' : ''} incomplete
+                  {skippedRooms.length} room
+                  {skippedRooms.length !== 1 ? 's' : ''} incomplete
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {skippedRooms.map((r) => (
@@ -339,24 +430,58 @@ export default function CompletionScreen({
           )}
         </div>
 
-        {/* File Uploads — Drone + Lot Lines */}
+        {/* File Uploads — Drone + Lot Lines with Thumbnail Grid */}
         <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
-          <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">Attachments</p>
+          <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">
+            Attachments
+          </p>
+
+          {/* Upload progress bar */}
+          {uploading && uploadProgress && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between text-xs text-neutral-500 mb-1">
+                <span>
+                  Uploading{' '}
+                  {uploading === 'drone' ? 'drone photos' : 'lot lines'}...
+                </span>
+                <span>
+                  {uploadProgress.done}/{uploadProgress.total}
+                </span>
+              </div>
+              <div className="h-1.5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary-500 rounded-full transition-all"
+                  style={{
+                    width: `${(uploadProgress.done / uploadProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Drone Photos */}
-          <div className="mb-5">
+          <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CameraIcon className="w-5 h-5 text-primary-500" />
-                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Drone Photos</span>
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  Drone Photos
+                </span>
+                {droneFiles.length > 0 && (
+                  <span className="text-[10px] font-bold text-primary-500 bg-primary-50 dark:bg-primary-900/30 px-1.5 py-0.5 rounded">
+                    {droneFiles.length}/{MAX_FILES}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => droneInputRef.current?.click()}
-                disabled={uploading === 'drone'}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-sm font-semibold"
+                disabled={
+                  uploading === 'drone' || droneFiles.length >= MAX_FILES
+                }
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-sm font-semibold disabled:opacity-40"
               >
                 <ArrowUpTrayIcon className="w-4 h-4" />
-                {uploading === 'drone' ? 'Uploading...' : 'Upload'}
+                Upload
               </button>
               <input
                 ref={droneInputRef}
@@ -364,25 +489,45 @@ export default function CompletionScreen({
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files, 'drone')}
+                onChange={(e) => {
+                  handleFileUpload(e.target.files, 'drone');
+                  e.target.value = '';
+                }}
               />
             </div>
             {droneFiles.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-4 gap-2">
                 {droneFiles.map((f, i) => (
-                  <span
+                  <div
                     key={i}
-                    className="px-2 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 text-xs font-medium rounded-lg flex items-center gap-1"
+                    className="relative group aspect-square rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700"
                   >
-                    {f.name}
+                    {f.thumbnailUrl ? (
+                      <img
+                        src={f.thumbnailUrl}
+                        alt={f.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <CameraIcon className="w-6 h-6 text-neutral-400" />
+                      </div>
+                    )}
+                    <div className="absolute top-1 right-1">
+                      <CheckCircleIcon className="w-5 h-5 text-success-500 drop-shadow" />
+                    </div>
                     <button
                       onClick={() =>
                         setDroneFiles((prev) => prev.filter((_, j) => j !== i))
                       }
+                      className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <XMarkIcon className="w-3 h-3" />
+                      <XMarkIcon className="w-3 h-3 text-white" />
                     </button>
-                  </span>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
+                      <p className="text-[9px] text-white truncate">{f.name}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -393,15 +538,24 @@ export default function CompletionScreen({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <MapIcon className="w-5 h-5 text-warning-500" />
-                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Lot Lines</span>
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  Lot Lines
+                </span>
+                {lotLineFiles.length > 0 && (
+                  <span className="text-[10px] font-bold text-warning-600 bg-warning-50 dark:bg-warning-900/30 px-1.5 py-0.5 rounded">
+                    {lotLineFiles.length}/{MAX_FILES}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => lotLineInputRef.current?.click()}
-                disabled={uploading === 'lot_line'}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-warning-50 dark:bg-warning-900/30 text-warning-600 dark:text-warning-400 text-sm font-semibold"
+                disabled={
+                  uploading === 'lot_line' || lotLineFiles.length >= MAX_FILES
+                }
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-warning-50 dark:bg-warning-900/30 text-warning-600 dark:text-warning-400 text-sm font-semibold disabled:opacity-40"
               >
                 <ArrowUpTrayIcon className="w-4 h-4" />
-                {uploading === 'lot_line' ? 'Uploading...' : 'Upload'}
+                Upload
               </button>
               <input
                 ref={lotLineInputRef}
@@ -409,25 +563,47 @@ export default function CompletionScreen({
                 accept="image/*,.pdf"
                 multiple
                 className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files, 'lot_line')}
+                onChange={(e) => {
+                  handleFileUpload(e.target.files, 'lot_line');
+                  e.target.value = '';
+                }}
               />
             </div>
             {lotLineFiles.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-4 gap-2">
                 {lotLineFiles.map((f, i) => (
-                  <span
+                  <div
                     key={i}
-                    className="px-2 py-1 bg-warning-50 dark:bg-warning-900/30 text-warning-700 dark:text-warning-400 text-xs font-medium rounded-lg flex items-center gap-1"
+                    className="relative group aspect-square rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700"
                   >
-                    {f.name}
+                    {f.thumbnailUrl ? (
+                      <img
+                        src={f.thumbnailUrl}
+                        alt={f.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <MapIcon className="w-6 h-6 text-neutral-400" />
+                      </div>
+                    )}
+                    <div className="absolute top-1 right-1">
+                      <CheckCircleIcon className="w-5 h-5 text-success-500 drop-shadow" />
+                    </div>
                     <button
                       onClick={() =>
-                        setLotLineFiles((prev) => prev.filter((_, j) => j !== i))
+                        setLotLineFiles((prev) =>
+                          prev.filter((_, j) => j !== i)
+                        )
                       }
+                      className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <XMarkIcon className="w-3 h-3" />
+                      <XMarkIcon className="w-3 h-3 text-white" />
                     </button>
-                  </span>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
+                      <p className="text-[9px] text-white truncate">{f.name}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -436,7 +612,9 @@ export default function CompletionScreen({
 
         {/* Global Notes */}
         <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
-          <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">Notes</p>
+          <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+            Notes
+          </p>
           <textarea
             value={shoot.globalNotes}
             onChange={(e) => shootHook.updateGlobalNotes(e.target.value)}
@@ -459,7 +637,9 @@ export default function CompletionScreen({
                     <span className="font-semibold text-neutral-700 dark:text-neutral-300">
                       {r.name}:
                     </span>{' '}
-                    <span className="text-neutral-500 dark:text-neutral-400">{r.notes}</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">
+                      {r.notes}
+                    </span>
                   </div>
                 ))}
             </div>
@@ -482,8 +662,8 @@ export default function CompletionScreen({
             {emailSent
               ? 'Email Sent'
               : sending
-              ? 'Sending...'
-              : 'Save & Email Summary'}
+                ? 'Sending...'
+                : 'Save & Email Summary'}
           </button>
           <button
             onClick={onNewShoot}

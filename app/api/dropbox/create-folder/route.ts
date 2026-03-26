@@ -14,7 +14,7 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+  const res = await fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({

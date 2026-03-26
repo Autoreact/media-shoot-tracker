@@ -47,6 +47,7 @@ export function useShootSync() {
             end_time: shoot.endTime,
             global_notes: shoot.globalNotes,
             dropbox_folder_path: shoot.dropboxFolderPath,
+            toggl_time_entry_id: shoot.togglTimeEntryId,
             status: shoot.status,
             started_at: shoot.startedAt,
             completed_at: shoot.completedAt,

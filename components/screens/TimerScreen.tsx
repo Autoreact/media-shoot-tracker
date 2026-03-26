@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ShootState } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
+import { getTierInfo } from '@/lib/data/tier-info';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { hapticTimerStart, hapticTimerStop } from '@/lib/utils/haptics';
 
@@ -79,30 +80,80 @@ export default function TimerScreen({
   });
 
   const isRunning = shoot.timerRunning;
+  const [togglSynced, setTogglSynced] = useState(!!shoot.togglTimeEntryId);
+
+  // Toggl API integration
+  const startTogglEntry = async (): Promise<void> => {
+    try {
+      const photographerNames: Record<string, string> = {
+        nick: 'Nick',
+        jared: 'Jared',
+        ben: 'Ben',
+      };
+      const name =
+        photographerNames[shoot.photographerId] || shoot.photographerId;
+      const res = await fetch('/api/toggl/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: `Order #${shoot.aryeoOrderNumber} — ${shoot.address} — ${name}`,
+          tags: ['323media', shoot.tier, shoot.photographerId],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.id) {
+          shootHook.setTogglTimeEntryId(data.id);
+          setTogglSynced(true);
+        }
+      }
+    } catch {
+      // Toggl is best-effort — timer still works locally
+    }
+  };
+
+  const stopTogglEntry = async (): Promise<void> => {
+    if (!shoot.togglTimeEntryId) return;
+    try {
+      await fetch('/api/toggl/stop', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeEntryId: shoot.togglTimeEntryId }),
+      });
+    } catch {
+      // Best-effort
+    }
+  };
 
   // Click-to-type time editing
   const [editingStart, setEditingStart] = useState(false);
   const [editingEnd, setEditingEnd] = useState(false);
 
-  const handleTimeInput = (
-    value: string,
-    field: 'start' | 'end'
-  ): void => {
+  const handleTimeInput = (value: string, field: 'start' | 'end'): void => {
     const parts = value.split(':').map(Number);
     const hours = parts[0];
     const minutes = parts[1];
-    if (hours === undefined || minutes === undefined || isNaN(hours) || isNaN(minutes)) return;
+    if (
+      hours === undefined ||
+      minutes === undefined ||
+      isNaN(hours) ||
+      isNaN(minutes)
+    )
+      return;
 
     const current = field === 'start' ? shoot.startTime : shoot.endTime;
     const d = current ? new Date(current) : new Date();
     d.setHours(hours, minutes, 0, 0);
 
     if (field === 'start') {
-      const diff = (d.getTime() - new Date(shoot.startTime || Date.now()).getTime()) / 60000;
+      const diff =
+        (d.getTime() - new Date(shoot.startTime || Date.now()).getTime()) /
+        60000;
       shootHook.adjustStartTime(Math.round(diff));
       setEditingStart(false);
     } else {
-      const diff = (d.getTime() - new Date(shoot.endTime || Date.now()).getTime()) / 60000;
+      const diff =
+        (d.getTime() - new Date(shoot.endTime || Date.now()).getTime()) / 60000;
       shootHook.adjustEndTime(Math.round(diff));
       setEditingEnd(false);
     }
@@ -125,7 +176,9 @@ export default function TimerScreen({
           >
             <ChevronLeftIcon className="w-6 h-6 text-neutral-300" />
           </button>
-          <h2 className="text-sm font-semibold text-toggl-muted uppercase tracking-wider">Timer</h2>
+          <h2 className="text-sm font-semibold text-toggl-muted uppercase tracking-wider">
+            Timer
+          </h2>
           <div className="w-10" />
         </div>
       </div>
@@ -208,7 +261,8 @@ export default function TimerScreen({
               {shoot.address || 'Shoot'}
             </p>
             <p className="text-xs text-toggl-muted">
-              {shoot.tier} · Order #{shoot.aryeoOrderNumber}
+              {getTierInfo(shoot.tier).displayName} · Order #
+              {shoot.aryeoOrderNumber}
             </p>
           </div>
 
@@ -216,7 +270,9 @@ export default function TimerScreen({
           <div className="w-full space-y-2">
             {/* Start time */}
             <div className="flex items-center justify-between bg-toggl-card-bg rounded-xl px-4 py-3">
-              <span className="text-sm text-toggl-muted font-medium">Start</span>
+              <span className="text-sm text-toggl-muted font-medium">
+                Start
+              </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => shootHook.adjustStartTime(-5)}
@@ -230,7 +286,11 @@ export default function TimerScreen({
                     defaultValue={formatTimeForInput(shoot.startTime)}
                     onBlur={(e) => handleTimeInput(e.target.value, 'start')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleTimeInput((e.target as HTMLInputElement).value, 'start');
+                      if (e.key === 'Enter')
+                        handleTimeInput(
+                          (e.target as HTMLInputElement).value,
+                          'start'
+                        );
                     }}
                     autoFocus
                     className="text-base font-semibold text-white min-w-[5rem] text-center font-mono tabular-nums bg-toggl-controls rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -268,7 +328,11 @@ export default function TimerScreen({
                     defaultValue={formatTimeForInput(shoot.endTime)}
                     onBlur={(e) => handleTimeInput(e.target.value, 'end')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleTimeInput((e.target as HTMLInputElement).value, 'end');
+                      if (e.key === 'Enter')
+                        handleTimeInput(
+                          (e.target as HTMLInputElement).value,
+                          'end'
+                        );
                     }}
                     autoFocus
                     className="text-base font-semibold text-white min-w-[5rem] text-center font-mono tabular-nums bg-toggl-controls rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -295,13 +359,15 @@ export default function TimerScreen({
         {/* Bottom: Start/Stop Button — bigger */}
         <div className="w-full pt-4">
           <button
-            onClick={() => {
+            onClick={async () => {
               if (isRunning) {
                 shootHook.stopTimer();
                 hapticTimerStop();
+                await stopTogglEntry();
               } else {
                 shootHook.startTimer();
                 hapticTimerStart();
+                await startTogglEntry();
               }
             }}
             className="w-full py-5 rounded-2xl font-bold text-lg text-white transition-all active:scale-[0.98]"
@@ -309,6 +375,12 @@ export default function TimerScreen({
           >
             {isRunning ? 'Stop' : 'Start'}
           </button>
+          {togglSynced && (
+            <p className="text-center text-xs text-toggl-muted mt-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-success-500 mr-1 align-middle" />
+              Synced to Toggl
+            </p>
+          )}
         </div>
       </div>
     </div>
