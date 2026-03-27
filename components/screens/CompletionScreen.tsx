@@ -5,6 +5,7 @@ import { ShootState } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
 import { getTierInfo } from '@/lib/data/tier-info';
 import { hapticComplete } from '@/lib/utils/haptics';
+import { supabase } from '@/lib/supabase';
 import {
   ChevronLeftIcon,
   ExclamationTriangleIcon,
@@ -183,19 +184,23 @@ export default function CompletionScreen({
       const file = toUpload[i]!;
       const entryId = pending[i]!.id;
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('type', type);
+        // Upload directly to Supabase Storage (bypasses Vercel 4.5MB body limit)
+        const ext = file.name.split('.').pop() || 'jpg';
+        const storagePath = `shoots/${shoot.aryeoOrderNumber}/${type}/${Date.now()}-${i}.${ext}`;
 
-        const res = await fetch(
-          `/api/shoots/${shoot.aryeoOrderNumber}/upload`,
-          { method: 'POST', body: formData }
-        );
+        const { error: uploadError } = await supabase.storage
+          .from('shoot-attachments')
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
 
-        if (res.ok) {
-          const data = await res.json();
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('shoot-attachments')
+            .getPublicUrl(storagePath);
+
           setter((prev) =>
-            prev.map((f) => (f.id === entryId ? { ...f, url: data.url } : f))
+            prev.map((f) =>
+              f.id === entryId ? { ...f, url: urlData.publicUrl } : f
+            )
           );
         }
       } catch {
