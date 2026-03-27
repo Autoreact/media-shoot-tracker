@@ -72,26 +72,22 @@ export async function POST(
     const photographer =
       nameMap[shoot.photographerId] || shoot.photographerId || 'Unknown';
 
-    const completionTime = shoot.completedAt
-      ? new Date(shoot.completedAt).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        })
-      : '';
-    const completionDate = shoot.completedAt
-      ? new Date(shoot.completedAt).toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })
-      : new Date().toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        });
+    const dateSource = shoot.completedAt
+      ? new Date(shoot.completedAt)
+      : new Date();
+    const completionTime = dateSource.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/New_York',
+    });
+    const completionDate = dateSource.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'America/New_York',
+    });
 
     const pct =
       shoot.target > 0
@@ -135,28 +131,33 @@ export async function POST(
       </tr>`;
 
     const hasAttachments = attachmentUrls && attachmentUrls.length > 0;
-    const attachRows = hasAttachments
-      ? attachmentUrls
-          .map((a: { url: string; name: string; type: string }, i: number) => {
-            const dotColor = a.type === 'drone' ? '#635BFF' : '#FF9F0A';
-            const typeLabel = a.type === 'drone' ? 'Drone' : 'Lot Line';
-            const isLast = i === attachmentUrls.length - 1;
-            return `<tr>
-            <td style="padding: 10px 16px; ${isLast ? '' : 'border-bottom: 1px solid #F2F2F7;'} font-family: ${f};">
-              <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-                <td style="width: 28px; vertical-align: middle;">
-                  <div style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor};"></div>
-                </td>
-                <td style="vertical-align: middle;">
-                  <a href="${esc(a.url)}" style="font-size: 13px; color: #635BFF; text-decoration: none; font-weight: 500;">${esc(a.name)}</a>
-                  <span style="font-size: 11px; color: #C7C7CC; margin-left: 6px;">${typeLabel}</span>
-                </td>
-              </tr></table>
-            </td>
-          </tr>`;
-          })
-          .join('')
-      : '';
+    const isImage = (name: string) => /\.(jpg|jpeg|png|webp|heic)$/i.test(name);
+    const attachCards = hasAttachments
+      ? attachmentUrls.map((a: { url: string; name: string; type: string }) => {
+          const typeLabel = a.type === 'drone' ? 'Drone' : 'Lot Line';
+          const tagColor = a.type === 'drone' ? '#635BFF' : '#FF9F0A';
+          const tagBg = a.type === 'drone' ? '#F0EEFF' : '#FFF8E1';
+          const showThumb = isImage(a.name);
+          return `<td style="width: 50%; padding: 4px; vertical-align: top;">
+              <a href="${esc(a.url)}" style="text-decoration: none; display: block;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #F9F9FB; border-radius: 10px; overflow: hidden;">
+                  ${showThumb ? `<tr><td><img src="${esc(a.url)}" width="100%" height="120" style="display: block; object-fit: cover; border-radius: 10px 10px 0 0;" alt="${esc(a.name)}" /></td></tr>` : ''}
+                  <tr><td style="padding: 10px 12px;">
+                    <p style="font-family: ${f}; font-size: 12px; color: #1D1D1F; margin: 0 0 4px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${esc(a.name)}</p>
+                    <span style="font-family: ${f}; font-size: 10px; font-weight: 600; color: ${tagColor}; background: ${tagBg}; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${typeLabel}</span>
+                  </td></tr>
+                </table>
+              </a>
+            </td>`;
+        })
+      : [];
+    // Pair attachments into rows of 2
+    const attachGridRows: string[] = [];
+    for (let i = 0; i < attachCards.length; i += 2) {
+      const second =
+        attachCards[i + 1] || '<td style="width: 50%; padding: 4px;"></td>';
+      attachGridRows.push(`<tr>${attachCards[i]}${second}</tr>`);
+    }
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -236,44 +237,34 @@ export async function POST(
     </td></tr>
 
     ${
-      incompleteRooms.length > 0
+      noteRows
         ? `
-    <!-- Alert -->
+    <!-- Room Notes -->
+    <tr><td style="padding: 0 28px 12px;">
+      <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Room Notes</p>
+    </td></tr>
     <tr><td style="padding: 0 28px 24px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #FFF8E1; border-radius: 12px;">
-        <tr><td style="padding: 14px 16px;">
-          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-            <td style="vertical-align: top; padding-right: 10px;">
-              <div style="width: 20px; height: 20px; background: #FF9F0A; border-radius: 50%; text-align: center; line-height: 20px;">
-                <span style="color: #fff; font-family: ${fd}; font-size: 13px; font-weight: 700;">!</span>
-              </div>
-            </td>
-            <td>
-              <p style="font-family: ${f}; font-size: 13px; font-weight: 600; color: #1D1D1F; margin: 0 0 3px;">${incompleteRooms.length} room${incompleteRooms.length !== 1 ? 's' : ''} incomplete</p>
-              <p style="font-family: ${f}; font-size: 12px; color: #8E8E93; margin: 0; line-height: 1.5;">${incompleteRooms.map((r: { name: string }) => esc(r.name)).join('  ·  ')}</p>
-            </td>
-          </tr></table>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">${noteRows}</table>
+    </td></tr>
+    `
+        : ''
+    }
+
+    ${
+      shoot.globalNotes
+        ? `
+    <!-- Notes -->
+    <tr><td style="padding: 0 28px 24px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #F9F9FB; border-radius: 12px;">
+        <tr><td style="padding: 16px;">
+          <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.8px;">Notes</p>
+          <p style="font-family: ${f}; font-size: 13px; color: #1D1D1F; margin: 0; line-height: 1.6;">${esc(shoot.globalNotes)}</p>
         </td></tr>
       </table>
     </td></tr>
     `
         : ''
     }
-
-    <!-- Rooms -->
-    <tr><td style="padding: 0 28px 12px;">
-      <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Room Breakdown</p>
-    </td></tr>
-    <tr><td style="padding: 0 28px 24px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-        <tr>
-          <td style="padding: 0 0 8px; font-size: 10px; font-weight: 600; color: #C7C7CC; text-transform: uppercase; letter-spacing: 0.5px; font-family: ${f};">Room</td>
-          <td style="padding: 0 0 8px; font-size: 10px; font-weight: 600; color: #C7C7CC; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; font-family: ${f};">Shots</td>
-          <td style="padding: 0 0 8px; width: 32px;"></td>
-        </tr>
-        ${roomRows}
-      </table>
-    </td></tr>
 
     ${
       shoot.dropboxFolderPath
@@ -303,29 +294,13 @@ export async function POST(
     ${
       hasAttachments
         ? `
-    <!-- Attachments -->
+    <!-- Attachments with thumbnails -->
     <tr><td style="padding: 0 28px 12px;">
       <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Attachments</p>
     </td></tr>
-    <tr><td style="padding: 0 28px 24px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #F9F9FB; border-radius: 12px;">
-        ${attachRows}
-      </table>
-    </td></tr>
-    `
-        : ''
-    }
-
-    ${
-      noteRows
-        ? `
-    <!-- Room Notes -->
-    <tr><td style="padding: 0 28px 12px;">
-      <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Room Notes</p>
-    </td></tr>
-    <tr><td style="padding: 0 28px 24px;">
+    <tr><td style="padding: 0 24px 24px;">
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-        ${noteRows}
+        ${attachGridRows.join('')}
       </table>
     </td></tr>
     `
@@ -333,20 +308,44 @@ export async function POST(
     }
 
     ${
-      shoot.globalNotes
+      incompleteRooms.length > 0
         ? `
-    <!-- Notes -->
+    <!-- Incomplete Rooms Alert -->
     <tr><td style="padding: 0 28px 24px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #F9F9FB; border-radius: 12px;">
-        <tr><td style="padding: 16px;">
-          <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.8px;">Notes</p>
-          <p style="font-family: ${f}; font-size: 13px; color: #1D1D1F; margin: 0; line-height: 1.6;">${esc(shoot.globalNotes)}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #FFF8E1; border-radius: 12px;">
+        <tr><td style="padding: 14px 16px;">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td style="vertical-align: top; padding-right: 10px;">
+              <div style="width: 20px; height: 20px; background: #FF9F0A; border-radius: 50%; text-align: center; line-height: 20px;">
+                <span style="color: #fff; font-family: ${fd}; font-size: 13px; font-weight: 700;">!</span>
+              </div>
+            </td>
+            <td>
+              <p style="font-family: ${f}; font-size: 13px; font-weight: 600; color: #1D1D1F; margin: 0 0 3px;">${incompleteRooms.length} room${incompleteRooms.length !== 1 ? 's' : ''} incomplete</p>
+              <p style="font-family: ${f}; font-size: 12px; color: #8E8E93; margin: 0; line-height: 1.5;">${incompleteRooms.map((r: { name: string }) => esc(r.name)).join('  ·  ')}</p>
+            </td>
+          </tr></table>
         </td></tr>
       </table>
     </td></tr>
     `
         : ''
     }
+
+    <!-- Room Breakdown -->
+    <tr><td style="padding: 0 28px 12px;">
+      <p style="font-family: ${f}; font-size: 11px; font-weight: 600; color: #AEAEB2; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Room Breakdown</p>
+    </td></tr>
+    <tr><td style="padding: 0 28px 24px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td style="padding: 0 0 8px; font-size: 10px; font-weight: 600; color: #C7C7CC; text-transform: uppercase; letter-spacing: 0.5px; font-family: ${f};">Room</td>
+          <td style="padding: 0 0 8px; font-size: 10px; font-weight: 600; color: #C7C7CC; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; font-family: ${f};">Shots</td>
+          <td style="padding: 0 0 8px; width: 32px;"></td>
+        </tr>
+        ${roomRows}
+      </table>
+    </td></tr>
 
     <tr><td style="height: 4px;"></td></tr>
 
