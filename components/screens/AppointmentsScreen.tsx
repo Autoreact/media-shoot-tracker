@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AryeoAppointment, PhotographerId, PHOTOGRAPHERS } from '@/types';
+import { AryeoAppointment, PhotographerId, PHOTOGRAPHERS, ShootState } from '@/types';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -12,13 +12,18 @@ import {
   XMarkIcon,
   PlusIcon,
   CheckCircleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 interface Props {
   onSelectAppointment: (appointment: AryeoAppointment) => void;
   onSettings?: () => void;
   onReports?: () => void;
+  activeShoot?: ShootState | null;
+  onResumeActiveShoot?: () => void;
+  onEndAndStartNew?: (appointment: AryeoAppointment) => void;
 }
 
 function formatDate(date: Date | null): string {
@@ -60,7 +65,14 @@ function getShooterInfo(id: PhotographerId) {
   return PHOTOGRAPHERS.find((p) => p.id === id);
 }
 
-export default function AppointmentsScreen({ onSelectAppointment, onSettings, onReports }: Props): React.ReactElement {
+export default function AppointmentsScreen({
+  onSelectAppointment,
+  onSettings,
+  onReports,
+  activeShoot,
+  onResumeActiveShoot,
+  onEndAndStartNew,
+}: Props): React.ReactElement {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [appointments, setAppointments] = useState<AryeoAppointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +80,27 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [completedOrders, setCompletedOrders] = useState<Set<string>>(new Set());
+  const [conflictAppt, setConflictAppt] = useState<AryeoAppointment | null>(null);
+
+  const hasActiveShoot =
+    !!activeShoot && activeShoot.status === 'active';
+
+  // Intercept taps on appointments while a shoot is in progress. Same order →
+  // resume directly. Different order → open the conflict AlertDialog.
+  const handleAppointmentTap = useCallback(
+    (appointment: AryeoAppointment): void => {
+      if (hasActiveShoot && activeShoot) {
+        if (activeShoot.aryeoOrderNumber === appointment.orderNumber) {
+          onResumeActiveShoot?.();
+          return;
+        }
+        setConflictAppt(appointment);
+        return;
+      }
+      onSelectAppointment(appointment);
+    },
+    [hasActiveShoot, activeShoot, onSelectAppointment, onResumeActiveShoot]
+  );
 
   // Load completed shoots from localStorage
   useEffect(() => {
@@ -160,8 +193,35 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
 
   return (
     <div className="flex flex-col min-h-screen animate-fade-in">
+      {/* Sticky Resume Banner — shown whenever an active shoot exists */}
+      {hasActiveShoot && activeShoot && (
+        <button
+          type="button"
+          onClick={() => onResumeActiveShoot?.()}
+          className="sticky top-0 z-20 w-full min-h-[56px] px-4 py-3 bg-primary-500 text-white flex items-center justify-between gap-3 shadow-md active:bg-primary-600 transition-colors"
+          aria-label={`Resume shoot at ${activeShoot.address}`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <ClockIcon className="w-5 h-5 shrink-0" />
+            <div className="flex flex-col items-start min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
+                Shoot In Progress
+              </span>
+              <span className="text-sm font-semibold truncate">
+                Resume {activeShoot.address}
+              </span>
+            </div>
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-1 rounded-lg shrink-0">
+            Resume →
+          </span>
+        </button>
+      )}
+
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 pb-3 px-4 pt-4">
+      <div
+        className={`sticky ${hasActiveShoot ? 'top-[56px]' : 'top-0'} z-10 bg-white dark:bg-neutral-900 pb-3 px-4 pt-4`}
+      >
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -308,7 +368,7 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
             <AppointmentCard
               key={apt.id}
               appointment={apt}
-              onSelect={onSelectAppointment}
+              onSelect={handleAppointmentTap}
               isCompleted={completedOrders.has(apt.orderNumber)}
               onToggleComplete={toggleCompleted}
             />
@@ -330,11 +390,61 @@ export default function AppointmentsScreen({ onSelectAppointment, onSettings, on
         <ManualEntryModal
           onSubmit={(apt) => {
             setShowManualEntry(false);
-            onSelectAppointment(apt);
+            handleAppointmentTap(apt);
           }}
           onClose={() => setShowManualEntry(false)}
         />
       )}
+
+      {/* Conflict AlertDialog — shown when tapping a different order
+          while a shoot is in progress */}
+      <AlertDialog.Root
+        open={!!conflictAppt}
+        onOpenChange={(open) => !open && setConflictAppt(null)}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-fade-in" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-2xl">
+            <AlertDialog.Title className="text-lg font-bold text-neutral-950 dark:text-white mb-2">
+              Shoot in progress
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-sm text-neutral-600 dark:text-neutral-300 mb-5">
+              You have a shoot in progress at{' '}
+              <span className="font-semibold text-neutral-900 dark:text-white">
+                {activeShoot?.address}
+              </span>
+              . End it first or resume?
+            </AlertDialog.Description>
+            <div className="flex flex-col gap-2">
+              <AlertDialog.Action
+                onClick={() => {
+                  setConflictAppt(null);
+                  onResumeActiveShoot?.();
+                }}
+                className="w-full min-h-[56px] rounded-xl bg-primary-500 text-white text-sm font-semibold active:bg-primary-600 transition-colors"
+              >
+                Resume
+              </AlertDialog.Action>
+              <AlertDialog.Action
+                onClick={() => {
+                  const next = conflictAppt;
+                  setConflictAppt(null);
+                  if (next) onEndAndStartNew?.(next);
+                }}
+                className="w-full min-h-[48px] rounded-xl bg-error-50 dark:bg-error-900/30 text-error-600 dark:text-error-400 text-sm font-semibold active:bg-error-100 transition-colors"
+              >
+                End &amp; Start New
+              </AlertDialog.Action>
+              <AlertDialog.Cancel
+                onClick={() => setConflictAppt(null)}
+                className="w-full min-h-[48px] rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-sm font-medium"
+              >
+                Cancel
+              </AlertDialog.Cancel>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }
