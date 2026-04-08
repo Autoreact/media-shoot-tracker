@@ -5,6 +5,7 @@ import { ShootRoom, PropertyTier, RoomCategory, CATEGORY_LABELS } from '@/types'
 import { QUICK_ADD_ROOMS } from '@/lib/data/quick-add-rooms';
 import { ChevronLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { nanoid } from 'nanoid';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 interface Props {
   rooms: ShootRoom[];
@@ -34,6 +35,7 @@ export default function RoomSetupScreen({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customRoomName, setCustomRoomName] = useState('');
   const [customRoomCategory, setCustomRoomCategory] = useState<RoomCategory>('misc');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
 
   const toggleRoom = (roomId: string): void => {
@@ -107,19 +109,33 @@ export default function RoomSetupScreen({
     <div className="flex flex-col min-h-screen animate-fade-in">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 px-4 pt-4 pb-3 border-b border-neutral-100 dark:border-neutral-800">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center text-neutral-600 dark:text-neutral-400"
-          >
-            <ChevronLeftIcon className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Room Setup</h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {enabledCount} rooms · ~{totalExpected} shots
-            </p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onBack}
+              className="w-8 h-8 flex items-center justify-center text-neutral-600 dark:text-neutral-400 shrink-0"
+              aria-label="Back"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-neutral-950 dark:text-white">
+                Room Setup
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {enabledCount} rooms · ~{totalExpected} shots
+              </p>
+            </div>
           </div>
+          {rooms.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowClearConfirm(true)}
+              className="text-error-500 text-sm font-semibold px-2 py-2 shrink-0"
+            >
+              Clear All
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,6 +282,36 @@ export default function RoomSetupScreen({
           </button>
         </div>
       </div>
+
+      {/* Clear All confirm dialog */}
+      <AlertDialog.Root open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-fade-in" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-2xl">
+            <AlertDialog.Title className="text-lg font-bold text-neutral-950 dark:text-white mb-2">
+              Clear all rooms?
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-sm text-neutral-600 dark:text-neutral-300 mb-5">
+              This removes every room from the setup. You can re-add them from
+              the quick-add list or custom entry.
+            </AlertDialog.Description>
+            <div className="flex flex-col gap-2">
+              <AlertDialog.Action
+                onClick={() => {
+                  onUpdateRooms([]);
+                  setShowClearConfirm(false);
+                }}
+                className="w-full min-h-[48px] rounded-xl bg-error-500 text-white text-sm font-semibold active:bg-error-600 transition-colors"
+              >
+                Clear All Rooms
+              </AlertDialog.Action>
+              <AlertDialog.Cancel className="w-full min-h-[48px] rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-sm font-medium">
+                Cancel
+              </AlertDialog.Cancel>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

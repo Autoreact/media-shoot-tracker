@@ -36,16 +36,30 @@ export default function HomePage(): React.ReactElement {
   const { settings, update: updateSettings } = useSettings();
   const activeShoot = shootHook.shoot;
 
-  // Resume active shoot on page load
+  // Resume active shoot on page load — route to the last-used in-shoot screen
   useEffect(() => {
     if (
       activeShoot &&
       activeShoot.status === 'active' &&
       screen === 'appointments'
     ) {
-      setScreen(activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count');
+      const fallback: AppScreen =
+        activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count';
+      setScreen(activeShoot.currentScreen ?? fallback);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist currentScreen into the shoot payload on every in-shoot navigation,
+  // so reloads restore the exact screen the photographer was on.
+  useEffect(() => {
+    if (!activeShoot || activeShoot.status !== 'active') return;
+    if (screen === 'appointments' || screen === 'settings' || screen === 'reports') {
+      return;
+    }
+    if (activeShoot.currentScreen !== screen) {
+      shootHook.setCurrentScreen(screen);
+    }
+  }, [screen, activeShoot, shootHook]);
 
   // Background sync to Supabase on every state change
   useEffect(() => {
@@ -83,6 +97,26 @@ export default function HomePage(): React.ReactElement {
       setScreen('tier_confirmation');
     },
     []
+  );
+
+  // Resume the in-progress shoot from the Appointments screen sticky banner
+  // or from the "Resume" button in the conflict AlertDialog.
+  const handleResumeActiveShoot = useCallback((): void => {
+    if (!activeShoot || activeShoot.status !== 'active') return;
+    const fallback: AppScreen =
+      activeShoot.mode === 'detail' ? 'room_tracker' : 'quick_count';
+    setScreen(activeShoot.currentScreen ?? fallback);
+  }, [activeShoot]);
+
+  // "End & Start New" from the conflict AlertDialog — clear the old shoot and
+  // proceed into the normal new-shoot flow for the tapped appointment.
+  const handleEndAndStartNew = useCallback(
+    (appointment: AryeoAppointment): void => {
+      shootHook.clearShoot();
+      setSelectedAppointment(appointment);
+      setScreen('tier_confirmation');
+    },
+    [shootHook]
   );
 
   const handleTierConfirmed = useCallback(
@@ -280,6 +314,9 @@ export default function HomePage(): React.ReactElement {
             onSelectAppointment={handleSelectAppointment}
             onSettings={() => setScreen('settings')}
             onReports={() => setScreen('reports')}
+            activeShoot={activeShoot}
+            onResumeActiveShoot={handleResumeActiveShoot}
+            onEndAndStartNew={handleEndAndStartNew}
           />
         )}
 

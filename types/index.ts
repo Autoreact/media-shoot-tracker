@@ -184,6 +184,9 @@ export interface ShootState {
   status: 'active' | 'completed';
   startedAt: string | null;
   completedAt: string | null;
+
+  // Resume support — persists the in-shoot screen so reloads restore exactly
+  currentScreen?: AppScreen;
 }
 
 // Tier Display Info

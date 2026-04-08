@@ -8,11 +8,27 @@ import {
   ShootMode,
   PhotographerId,
   AryeoAppointment,
+  AppScreen,
 } from '@/types';
 import { useLocalStorage } from './useLocalStorage';
 import { getTierInfo } from '@/lib/data/tier-info';
 
 const INITIAL_STATE: ShootState | null = null;
+
+/**
+ * Thrown by startShoot() when a new shoot is requested while a different
+ * active shoot is already in progress. The UI catches this and renders
+ * the "Resume / End & Start New / Cancel" AlertDialog.
+ */
+export class ShootInProgressError extends Error {
+  constructor(
+    public readonly address: string,
+    public readonly orderNumber: string
+  ) {
+    super(`Shoot in progress at ${address} (#${orderNumber})`);
+    this.name = 'ShootInProgressError';
+  }
+}
 
 export function useShoot() {
   const [shoot, setShoot] = useLocalStorage<ShootState | null>(
@@ -28,6 +44,16 @@ export function useShoot() {
       photographerId: PhotographerId,
       rooms: ShootRoom[]
     ): ShootState => {
+      // Guard: if an active shoot already exists, decide resume vs conflict.
+      if (shoot && shoot.status === 'active') {
+        if (shoot.aryeoOrderNumber === appointment.orderNumber) {
+          // Same order → resume. Do NOT clobber rooms/timer/state.
+          return shoot;
+        }
+        // Different order → caller must prompt the user.
+        throw new ShootInProgressError(shoot.address, shoot.aryeoOrderNumber);
+      }
+
       const tierInfo = getTierInfo(tier);
       const dropboxFolderPath = `AutoHDR/${appointment.orderNumber} - ${appointment.agentName} - ${appointment.fullAddress}/01-RAW-Photos/`;
 
@@ -62,12 +88,13 @@ export function useShoot() {
         status: 'active',
         startedAt: new Date().toISOString(),
         completedAt: null,
+        currentScreen: mode === 'detail' ? 'room_tracker' : 'quick_count',
       };
 
       setShoot(newShoot);
       return newShoot;
     },
-    [setShoot]
+    [shoot, setShoot]
   );
 
   // Manual entry — no Aryeo appointment
@@ -114,6 +141,7 @@ export function useShoot() {
         status: 'active',
         startedAt: new Date().toISOString(),
         completedAt: null,
+        currentScreen: mode === 'detail' ? 'room_tracker' : 'quick_count',
       };
 
       setShoot(newShoot);
@@ -373,6 +401,18 @@ export function useShoot() {
     [setShoot]
   );
 
+  // Persist in-shoot screen so reloads restore the exact view
+  const setCurrentScreen = useCallback(
+    (screen: AppScreen): void => {
+      setShoot((prev) => {
+        if (!prev) return prev;
+        if (prev.currentScreen === screen) return prev;
+        return { ...prev, currentScreen: screen };
+      });
+    },
+    [setShoot]
+  );
+
   // Complete
   const completeShoot = useCallback((): void => {
     setShoot((prev) => {
@@ -452,6 +492,7 @@ export function useShoot() {
     updateRoomNotes,
     updateGlobalNotes,
     setTogglTimeEntryId,
+    setCurrentScreen,
     completeShoot,
     clearShoot,
     getTotals,
