@@ -61,6 +61,55 @@ export default function CompletionScreen({
   const [editingDuration, setEditingDuration] = useState(false);
   const [durationInput, setDurationInput] = useState('');
 
+  // Phase 2 (2.6) — final duration is Toggl-authoritative. On mount, if a
+  // running Toggl entry exists, stop it and capture the returned duration.
+  // Local shoot.timerSeconds remains the fallback if Toggl is unreachable.
+  const [togglDurationSeconds, setTogglDurationSeconds] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function syncTogglDuration(): Promise<void> {
+      if (!shoot.togglTimeEntryId || !shoot.timerRunning) return;
+      try {
+        const res = await fetch('/api/toggl/stop', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timeEntryId: shoot.togglTimeEntryId }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          duration?: number;
+          start?: string;
+          stop?: string;
+        };
+        if (!cancelled && typeof data.duration === 'number') {
+          setTogglDurationSeconds(data.duration);
+          // Mirror into local store so refreshes and the email payload see
+          // the authoritative value even if this effect doesn't re-run.
+          shootHook.updateTimerSeconds(data.duration);
+        }
+      } catch {
+        // Silent — fallback to shoot.timerSeconds is already in place.
+      }
+    }
+    syncTogglDuration();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally mount-only; we don't want to re-stop Toggl on every
+    // state change. Re-stopping a stopped entry would no-op anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Phase 2 (2.6) — final duration source of truth:
+   *   1. Toggl duration (if captured)
+   *   2. shoot.timerSeconds (derived-from-startTime fallback)
+   */
+  const finalDurationSeconds = togglDurationSeconds ?? shoot.timerSeconds;
+
   const totals = shootHook.getTotals();
   const tierInfo = getTierInfo(shoot.tier);
 
@@ -86,7 +135,7 @@ export default function CompletionScreen({
   );
   const hasSkipped = skippedRooms.length > 0;
 
-  const durationMinutes = Math.round(shoot.timerSeconds / 60);
+  const durationMinutes = Math.round(finalDurationSeconds / 60);
 
   const handleDurationSave = (): void => {
     const val = parseInt(durationInput, 10);
@@ -370,7 +419,7 @@ export default function CompletionScreen({
                 }}
                 className="text-2xl font-bold text-neutral-950 dark:text-white hover:text-primary-500 transition-colors tabular-nums"
               >
-                {formatDuration(shoot.timerSeconds)}
+                {formatDuration(finalDurationSeconds)}
               </button>
             )}
           </div>

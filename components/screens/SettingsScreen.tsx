@@ -2,7 +2,7 @@
 
 import { PhotographerId, PropertyTier, PHOTOGRAPHERS } from '@/types';
 import { TIER_INFO, TIER_ORDER } from '@/lib/data/tier-info';
-import { AppSettings } from '@/lib/hooks/useSettings';
+import { AppSettings, UserName } from '@/lib/hooks/useSettings';
 import {
   ChevronLeftIcon,
   MoonIcon,
@@ -140,6 +140,47 @@ export default function SettingsScreen({
                   {p.name}
                 </button>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Phase 2 (2.8) — Photographer radio group: identity of THIS device.
+            Used by Toggl entries, Dropbox folders and email summaries when
+            the active shoot has no photographer resolved. */}
+        <section>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+            Photographer (this device)
+          </h3>
+          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <UserIcon className="w-4 h-4 text-neutral-500" />
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                Auto-tags Toggl entries and email summaries
+              </span>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Photographer"
+              className="flex gap-2"
+            >
+              {(['Nick', 'Jared', 'Ben'] as UserName[]).map((name) => {
+                const isSelected = settings.userName === name;
+                return (
+                  <button
+                    key={name}
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => onUpdate({ userName: name })}
+                    className={`flex-1 min-h-[48px] px-3 rounded-lg text-sm font-semibold transition-colors ${
+                      isSelected
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>

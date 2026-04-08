@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { ShootState } from '@/types';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { ShootState, PHOTOGRAPHERS } from '@/types';
 import { useShoot } from '@/lib/hooks/useShoot';
+import { useSettings } from '@/lib/hooks/useSettings';
 import { getTierInfo } from '@/lib/data/tier-info';
+import { computeElapsedSeconds } from '@/lib/utils/timer';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { hapticTimerStart, hapticTimerStop } from '@/lib/utils/haptics';
 
@@ -37,22 +40,62 @@ export default function TimerScreen({
   shootHook,
   onBack,
 }: Props): React.ReactElement {
+  const { settings } = useSettings();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const secondsRef = useRef(shoot.timerSeconds);
-  secondsRef.current = shoot.timerSeconds;
 
-  // Timer tick — uses ref to avoid stale closure
+  // Phase 2 (2.3) — auto-start on entry if no startTime yet. No manual "Start"
+  // button required; a shoot that reaches the timer screen is already running.
   useEffect(() => {
-    if (shoot.timerRunning) {
-      intervalRef.current = setInterval(() => {
-        secondsRef.current += 1;
-        shootHook.updateTimerSeconds(secondsRef.current);
-      }, 1000);
+    if (!shoot.startTime) {
+      shootHook.startTimer();
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Phase 2 (2.1) — elapsed is DERIVED from wall clock, never incremented.
+  // A single tick reads `Date.now() - startTime` and writes it back to the
+  // persisted `shoot.timerSeconds` so reload / resume stay accurate.
+  //
+  // This replaces the old `secondsRef.current += 1` pattern, which iOS Safari
+  // throttled aggressively on backgrounded PWA tabs (9 ticks for a 2h shoot).
+  const tick = useCallback((): void => {
+    if (!shoot.startTime) return;
+    const seconds = computeElapsedSeconds(shoot.startTime, Date.now());
+    shootHook.updateTimerSeconds(seconds);
+  }, [shoot.startTime, shootHook]);
+
+  useEffect(() => {
+    if (!shoot.timerRunning) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    // Immediate tick so the display is accurate the moment this effect runs
+    // (mount, resume from background, startTime edit, …).
+    tick();
+
+    intervalRef.current = setInterval(tick, 1000);
+
+    // Phase 2 (2.1) — re-tick when the tab becomes visible again. iOS Safari
+    // suspends setInterval in background tabs, so the visibilitychange hook
+    // is how we catch up instantly on foreground.
+    const onVisibilityChange = (): void => {
+      if (!document.hidden) tick();
     };
-  }, [shoot.timerRunning, shootHook]);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [shoot.timerRunning, tick]);
 
   // SVG ring — bigger for better visibility
   const ringSize = 280;
@@ -87,22 +130,26 @@ export default function TimerScreen({
     setTogglSynced(!!shoot.togglTimeEntryId);
   }, [shoot.togglTimeEntryId]);
 
+  // Phase 2 (2.4) — photographer name priority:
+  //   1. shoot.photographerId → PHOTOGRAPHERS.name
+  //   2. settings.userName (device-level identity)
+  //   3. 'Unknown'
+  const photographerName = ((): string => {
+    const fromShoot = PHOTOGRAPHERS.find((p) => p.id === shoot.photographerId);
+    if (fromShoot) return fromShoot.name;
+    if (settings.userName) return settings.userName;
+    return 'Unknown';
+  })();
+
   // Toggl API integration
   const startTogglEntry = async (): Promise<void> => {
     try {
-      const photographerNames: Record<string, string> = {
-        nick: 'Nick',
-        jared: 'Jared',
-        ben: 'Ben',
-      };
-      const name =
-        photographerNames[shoot.photographerId] || shoot.photographerId;
       const res = await fetch('/api/toggl/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: `Order #${shoot.aryeoOrderNumber} — ${shoot.address} — ${name}`,
-          tags: ['323media', shoot.tier, shoot.photographerId],
+          description: `Order #${shoot.aryeoOrderNumber} — ${shoot.address} — ${photographerName}`,
+          photographer: photographerName,
         }),
       });
       if (res.ok) {
@@ -133,6 +180,41 @@ export default function TimerScreen({
   // Click-to-type time editing
   const [editingStart, setEditingStart] = useState(false);
   const [editingEnd, setEditingEnd] = useState(false);
+
+  // Phase 2 (2.2) — editable elapsed via numeric stepper dialog.
+  // Tapping the HH:MM:SS display opens a Radix Dialog with HH and MM inputs;
+  // saving computes `newStartTime = Date.now() - newElapsedSeconds * 1000`
+  // so the derived-from-wall-clock invariant still holds.
+  const [editingElapsed, setEditingElapsed] = useState(false);
+  const [elapsedHoursInput, setElapsedHoursInput] = useState('0');
+  const [elapsedMinutesInput, setElapsedMinutesInput] = useState('0');
+
+  const openElapsedEditor = (): void => {
+    const h = Math.floor(shoot.timerSeconds / 3600);
+    const m = Math.floor((shoot.timerSeconds % 3600) / 60);
+    setElapsedHoursInput(String(h));
+    setElapsedMinutesInput(String(m));
+    setEditingElapsed(true);
+  };
+
+  const saveElapsedEdit = (): void => {
+    const h = Math.max(0, parseInt(elapsedHoursInput, 10) || 0);
+    const m = Math.max(0, Math.min(59, parseInt(elapsedMinutesInput, 10) || 0));
+    const newElapsedSeconds = h * 3600 + m * 60;
+
+    // adjustStartTime(deltaMinutes) adds delta minutes to startTime.
+    // To hit `newStartTime = now - newElapsedSeconds*1000` we shift the
+    // current startTime by (currentElapsed - newElapsed) / 60 minutes.
+    const currentElapsed = computeElapsedSeconds(shoot.startTime, Date.now());
+    const deltaMinutes = Math.round((currentElapsed - newElapsedSeconds) / 60);
+    if (deltaMinutes !== 0) {
+      shootHook.adjustStartTime(deltaMinutes);
+    }
+    // Mirror immediately into timerSeconds so the ring/text update without
+    // waiting for the next interval tick.
+    shootHook.updateTimerSeconds(newElapsedSeconds);
+    setEditingElapsed(false);
+  };
 
   const handleTimeInput = (value: string, field: 'start' | 'end'): void => {
     const parts = value.split(':').map(Number);
@@ -245,12 +327,19 @@ export default function TimerScreen({
                 transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
               />
             </svg>
-            {/* Time display in center */}
+            {/* Time display in center — tappable to edit elapsed */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-5xl font-black text-white font-mono tabular-nums">
-                {formatTimerDisplay(shoot.timerSeconds)}
-              </span>
-              <span className="text-sm text-toggl-muted mt-1">elapsed</span>
+              <button
+                type="button"
+                onClick={openElapsedEditor}
+                aria-label="Edit elapsed time"
+                className="flex flex-col items-center justify-center min-h-[56px] px-4 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                <span className="text-5xl font-black text-white font-mono tabular-nums">
+                  {formatTimerDisplay(shoot.timerSeconds)}
+                </span>
+                <span className="text-sm text-toggl-muted mt-1">elapsed · tap to edit</span>
+              </button>
             </div>
           </div>
         </div>
@@ -388,6 +477,72 @@ export default function TimerScreen({
           )}
         </div>
       </div>
+
+      {/* Phase 2 (2.2) — Edit Elapsed Dialog */}
+      <Dialog.Root open={editingElapsed} onOpenChange={setEditingElapsed}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 z-50" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-sm bg-toggl-card-bg rounded-2xl p-6 z-50 shadow-2xl">
+            <Dialog.Title className="text-lg font-bold text-white mb-1">
+              Edit Elapsed Time
+            </Dialog.Title>
+            <Dialog.Description className="text-xs text-toggl-muted mb-5">
+              Adjust the shoot start time so the timer shows the correct duration.
+            </Dialog.Description>
+
+            <div className="flex items-end justify-center gap-3 mb-6">
+              <div className="flex flex-col items-center">
+                <label className="text-[10px] uppercase tracking-wider text-toggl-muted mb-1">
+                  Hours
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  value={elapsedHoursInput}
+                  onChange={(e) => setElapsedHoursInput(e.target.value)}
+                  className="w-20 h-14 text-center text-3xl font-bold text-white font-mono tabular-nums bg-toggl-controls rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <span className="text-3xl font-bold text-white pb-3">:</span>
+              <div className="flex flex-col items-center">
+                <label className="text-[10px] uppercase tracking-wider text-toggl-muted mb-1">
+                  Minutes
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  step={1}
+                  value={elapsedMinutesInput}
+                  onChange={(e) => setElapsedMinutesInput(e.target.value)}
+                  className="w-20 h-14 text-center text-3xl font-bold text-white font-mono tabular-nums bg-toggl-controls rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="flex-1 h-14 rounded-xl bg-toggl-controls text-white font-semibold"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={saveElapsedEdit}
+                className="flex-1 h-14 rounded-xl bg-primary-500 text-white font-semibold"
+              >
+                Save
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

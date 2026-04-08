@@ -35,7 +35,13 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     const data = await res.json();
-    return NextResponse.json({ duration: data.duration, stop: data.stop });
+    // Phase 2 (2.5) — return start alongside duration and stop so callers
+    // (CompletionScreen) can use the Toggl-authoritative timeline.
+    return NextResponse.json({
+      duration: data.duration,
+      start: data.start,
+      stop: data.stop,
+    });
   } catch (error) {
     console.error('[Toggl] Error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
